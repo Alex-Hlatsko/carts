@@ -11,7 +11,7 @@ import {
   orderBy, 
   onSnapshot 
 } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getFirebaseInstances, isFirebaseInitialized } from '@/lib/firebase';
 
 export function useCollection<T>(collectionName: string) {
   const [data, setData] = useState<T[]>([]);
@@ -19,31 +19,48 @@ export function useCollection<T>(collectionName: string) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const q = query(collection(db, collectionName), orderBy('dateAdded', 'desc'));
-    
-    const unsubscribe = onSnapshot(q, 
-      (snapshot) => {
-        const items = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-          dateAdded: doc.data().dateAdded?.toDate(),
-          timestamp: doc.data().timestamp?.toDate(),
-          dateModified: doc.data().dateModified?.toDate(),
-        })) as T[];
-        setData(items);
-        setLoading(false);
-      },
-      (err) => {
-        setError(err.message);
-        setLoading(false);
-      }
-    );
+    if (!isFirebaseInitialized()) {
+      setError('Firebase not configured. Please configure Firebase in Settings.');
+      setLoading(false);
+      return;
+    }
 
-    return () => unsubscribe();
+    try {
+      const { db } = getFirebaseInstances();
+      const q = query(collection(db, collectionName), orderBy('dateAdded', 'desc'));
+      
+      const unsubscribe = onSnapshot(q, 
+        (snapshot) => {
+          const items = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data(),
+            dateAdded: doc.data().dateAdded?.toDate(),
+            timestamp: doc.data().timestamp?.toDate(),
+            dateModified: doc.data().dateModified?.toDate(),
+          })) as T[];
+          setData(items);
+          setLoading(false);
+        },
+        (err) => {
+          setError(err.message);
+          setLoading(false);
+        }
+      );
+
+      return () => unsubscribe();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Firebase error');
+      setLoading(false);
+    }
   }, [collectionName]);
 
   const addDocument = async (data: Omit<T, 'id'>) => {
     try {
+      if (!isFirebaseInitialized()) {
+        throw new Error('Firebase not configured');
+      }
+      
+      const { db } = getFirebaseInstances();
       await addDoc(collection(db, collectionName), {
         ...data,
         dateAdded: new Date(),
@@ -55,6 +72,11 @@ export function useCollection<T>(collectionName: string) {
 
   const updateDocument = async (id: string, data: Partial<T>) => {
     try {
+      if (!isFirebaseInitialized()) {
+        throw new Error('Firebase not configured');
+      }
+      
+      const { db } = getFirebaseInstances();
       await updateDoc(doc(db, collectionName, id), data);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');
@@ -63,6 +85,11 @@ export function useCollection<T>(collectionName: string) {
 
   const deleteDocument = async (id: string) => {
     try {
+      if (!isFirebaseInitialized()) {
+        throw new Error('Firebase not configured');
+      }
+      
+      const { db } = getFirebaseInstances();
       await deleteDoc(doc(db, collectionName, id));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'An error occurred');

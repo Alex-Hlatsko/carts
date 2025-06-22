@@ -4,13 +4,14 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChecklistEditor } from '@/components/ChecklistEditor';
+import { FirebaseConfig } from '@/components/FirebaseConfig';
 import { useCollection } from '@/hooks/useFirestore';
 import { ChecklistConfig, ChecklistItem } from '@/types';
 import { ArrowLeft, Save, RotateCcw } from 'lucide-react';
 
 export function SettingsPage() {
   const navigate = useNavigate();
-  const { data: checklistConfigs, addDocument, updateDocument } = useCollection<ChecklistConfig>('checklists');
+  const { data: checklistConfigs, addDocument, updateDocument, error } = useCollection<ChecklistConfig>('checklists');
   const [currentConfig, setCurrentConfig] = useState<ChecklistConfig | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
 
@@ -122,67 +123,42 @@ export function SettingsPage() {
           <h1 className="text-2xl font-bold">Настройки</h1>
         </div>
 
-        <Card>
-          <CardHeader>
-            <div className="flex justify-between items-center">
-              <CardTitle>Редактирование чек-листа</CardTitle>
-              <div className="flex gap-2">
-                <Button variant="outline" onClick={resetToDefault}>
-                  <RotateCcw className="h-4 w-4 mr-2" />
-                  Сбросить
-                </Button>
-                <Button onClick={saveConfig} disabled={!hasChanges}>
-                  <Save className="h-4 w-4 mr-2" />
-                  Сохранить
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {currentConfig ? (
-              <ChecklistEditor
-                items={currentConfig.items}
-                onChange={handleChecklistChange}
-              />
-            ) : (
-              <div className="text-center py-8">
-                <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500 mx-auto"></div>
-                <p className="mt-4 text-gray-600">Загрузка конфигурации...</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        <div className="space-y-6">
+          <FirebaseConfig />
 
-        <Card className="mt-6">
-          <CardHeader>
-            <CardTitle>Информация о Firebase</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4 text-sm">
-              <div className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <h4 className="font-semibold text-yellow-800 mb-2">Настройка Firebase</h4>
-                <p className="text-yellow-700">
-                  Для корректной работы приложения необходимо настроить Firebase:
-                </p>
-                <ol className="mt-2 list-decimal list-inside text-yellow-700 space-y-1">
-                  <li>Создайте проект в Firebase Console</li>
-                  <li>Включите Firestore Database</li>
-                  <li>Включите Storage</li>
-                  <li>Обновите конфигурацию в файле <code>src/lib/firebase.ts</code></li>
-                </ol>
-              </div>
-              
-              <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <h4 className="font-semibold text-blue-800 mb-2">Структура базы данных</h4>
-                <ul className="text-blue-700 space-y-1">
-                  <li><strong>stands</strong> - коллекция стендов</li>
-                  <li><strong>reports</strong> - коллекция отчётов</li>
-                  <li><strong>checklists</strong> - конфигурации чек-листов</li>
-                </ul>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+          {!error && (
+            <Card>
+              <CardHeader>
+                <div className="flex justify-between items-center">
+                  <CardTitle>Редактирование чек-листа</CardTitle>
+                  <div className="flex gap-2">
+                    <Button variant="outline" onClick={resetToDefault}>
+                      <RotateCcw className="h-4 w-4 mr-2" />
+                      Сбросить
+                    </Button>
+                    <Button onClick={saveConfig} disabled={!hasChanges}>
+                      <Save className="h-4 w-4 mr-2" />
+                      Сохранить
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {currentConfig ? (
+                  <ChecklistEditor
+                    items={currentConfig.items}
+                    onChange={handleChecklistChange}
+                  />
+                ) : (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500 mx-auto"></div>
+                    <p className="mt-4 text-gray-600">Загрузка конфигурации...</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </div>
       </div>
     </div>
   );

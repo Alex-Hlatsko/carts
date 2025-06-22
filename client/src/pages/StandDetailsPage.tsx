@@ -11,7 +11,7 @@ import { useCollection } from '@/hooks/useFirestore';
 import { Stand, Report, ChecklistConfig } from '@/types';
 import { ArrowLeft, Download, Upload, QrCode } from 'lucide-react';
 import { doc, getDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+import { getFirebaseInstances, isFirebaseInitialized } from '@/lib/firebase';
 
 export function StandDetailsPage() {
   const { id } = useParams<{ id: string }>();
@@ -26,6 +26,7 @@ export function StandDetailsPage() {
   const [handledTo, setHandledTo] = useState('');
   const [comments, setComments] = useState('');
   const [showQR, setShowQR] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (id) {
@@ -34,7 +35,14 @@ export function StandDetailsPage() {
   }, [id]);
 
   const loadStand = async (standId: string) => {
+    if (!isFirebaseInitialized()) {
+      setError('Firebase не настроен');
+      setLoading(false);
+      return;
+    }
+
     try {
+      const { db } = getFirebaseInstances();
       const standDoc = await getDoc(doc(db, 'stands', standId));
       if (standDoc.exists()) {
         const data = standDoc.data();
@@ -46,6 +54,7 @@ export function StandDetailsPage() {
       }
     } catch (error) {
       console.error('Error loading stand:', error);
+      setError('Ошибка загрузки стенда');
     } finally {
       setLoading(false);
     }
@@ -106,6 +115,22 @@ export function StandDetailsPage() {
     };
   };
 
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <Card>
+          <CardContent className="p-6 text-center">
+            <h2 className="text-xl font-semibold mb-4">Ошибка</h2>
+            <p className="text-gray-600 mb-4">{error}</p>
+            <Button onClick={() => navigate('/settings')}>
+              Настроить Firebase
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -151,7 +176,7 @@ export function StandDetailsPage() {
                   <img
                     src={stand.imageUrl}
                     alt={stand.name}
-                    className="w-full max-w-sm mx-auto rounded-lg"
+                    className="w-full max-w-xs mx-auto rounded-lg aspect-[3/4] object-cover"
                   />
                 )}
                 
@@ -159,19 +184,6 @@ export function StandDetailsPage() {
                   <Label>Состояние</Label>
                   <p className="text-gray-700">{stand.condition}</p>
                 </div>
-
-                {stand.languages.length > 0 && (
-                  <div>
-                    <Label>Языки</Label>
-                    <div className="flex flex-wrap gap-2 mt-1">
-                      {stand.languages.map(lang => (
-                        <span key={lang} className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-sm">
-                          {lang}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
 
                 {stand.inventory.length > 0 && (
                   <div>

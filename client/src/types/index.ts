@@ -2,7 +2,6 @@ export interface Stand {
   id: string;
   name: string;
   condition: string;
-  languages: string[];
   inventory: string[];
   dateAdded: Date;
   imageUrl?: string;
@@ -34,4 +33,13 @@ export interface ChecklistConfig {
   name: string;
   items: ChecklistItem[];
   dateModified: Date;
+}
+
+export interface FirebaseConfig {
+  apiKey: string;
+  authDomain: string;
+  projectId: string;
+  storageBucket: string;
+  messagingSenderId: string;
+  appId: string;
 }

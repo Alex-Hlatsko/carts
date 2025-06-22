@@ -39,7 +39,7 @@ export function ImageUpload({ onImageSelect, currentImageUrl, className }: Image
             <img 
               src={preview} 
               alt="Preview" 
-              className="w-full h-48 object-cover rounded-lg"
+              className="w-full max-w-xs mx-auto rounded-lg aspect-[3/4] object-cover"
             />
             <Button
               variant="destructive"
@@ -54,7 +54,7 @@ export function ImageUpload({ onImageSelect, currentImageUrl, className }: Image
           <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
             <ImageIcon className="mx-auto h-12 w-12 text-gray-400 mb-4" />
             <p className="text-sm text-gray-600 mb-4">
-              Выберите изображение стенда
+              Выберите изображение стенда (вертикальное)
             </p>
             <label htmlFor="image-upload">
               <Button asChild>

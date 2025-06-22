@@ -13,23 +13,26 @@ import { ArrowLeft, Save } from 'lucide-react';
 
 export function AddStandPage() {
   const navigate = useNavigate();
-  const { addDocument } = useCollection<Stand>('stands');
+  const { addDocument, error: firestoreError } = useCollection<Stand>('stands');
   const { uploadImage, uploading } = useImageUpload();
   
   const [formData, setFormData] = useState({
     name: '',
     condition: 'Хорошее',
-    languages: [] as string[],
     inventory: [] as string[],
   });
   
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
-  const [languageInput, setLanguageInput] = useState('');
   const [inventoryInput, setInventoryInput] = useState('');
 
   const handleSubmit = async () => {
     if (!formData.name.trim()) {
       alert('Пожалуйста, введите название стенда');
+      return;
+    }
+
+    if (firestoreError) {
+      alert('Ошибка: ' + firestoreError);
       return;
     }
 
@@ -55,23 +58,6 @@ export function AddStandPage() {
     }
   };
 
-  const addLanguage = () => {
-    if (languageInput.trim() && !formData.languages.includes(languageInput.trim())) {
-      setFormData(prev => ({
-        ...prev,
-        languages: [...prev.languages, languageInput.trim()]
-      }));
-      setLanguageInput('');
-    }
-  };
-
-  const removeLanguage = (language: string) => {
-    setFormData(prev => ({
-      ...prev,
-      languages: prev.languages.filter(l => l !== language)
-    }));
-  };
-
   const addInventoryItem = () => {
     if (inventoryInput.trim() && !formData.inventory.includes(inventoryInput.trim())) {
       setFormData(prev => ({
@@ -88,6 +74,22 @@ export function AddStandPage() {
       inventory: prev.inventory.filter(i => i !== item)
     }));
   };
+
+  if (firestoreError) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <Card>
+          <CardContent className="p-6 text-center">
+            <h2 className="text-xl font-semibold mb-4">Ошибка подключения</h2>
+            <p className="text-gray-600 mb-4">{firestoreError}</p>
+            <Button onClick={() => navigate('/settings')}>
+              Настроить Firebase
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-4">
@@ -123,35 +125,6 @@ export function AddStandPage() {
                   onChange={(e) => setFormData(prev => ({ ...prev, condition: e.target.value }))}
                   placeholder="Состояние стенда"
                 />
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Языки</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex gap-2 mb-4">
-                <Input
-                  value={languageInput}
-                  onChange={(e) => setLanguageInput(e.target.value)}
-                  placeholder="Добавить язык"
-                  onKeyPress={(e) => e.key === 'Enter' && addLanguage()}
-                />
-                <Button onClick={addLanguage}>Добавить</Button>
-              </div>
-              
-              <div className="flex flex-wrap gap-2">
-                {formData.languages.map(language => (
-                  <span
-                    key={language}
-                    className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm cursor-pointer hover:bg-red-100 hover:text-red-800"
-                    onClick={() => removeLanguage(language)}
-                  >
-                    {language} ×
-                  </span>
-                ))}
               </div>
             </CardContent>
           </Card>

@@ -11,14 +11,29 @@ import { ArrowLeft, Search, QrCode, Eye } from 'lucide-react';
 
 export function StandsPage() {
   const navigate = useNavigate();
-  const { data: stands, loading } = useCollection<Stand>('stands');
+  const { data: stands, loading, error } = useCollection<Stand>('stands');
   const [searchTerm, setSearchTerm] = useState('');
   const [showQR, setShowQR] = useState<string | null>(null);
 
   const filteredStands = stands.filter(stand =>
-    stand.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    stand.languages.some(lang => lang.toLowerCase().includes(searchTerm.toLowerCase()))
+    stand.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <Card>
+          <CardContent className="p-6 text-center">
+            <h2 className="text-xl font-semibold mb-4">Ошибка подключения</h2>
+            <p className="text-gray-600 mb-4">{error}</p>
+            <Button onClick={() => navigate('/settings')}>
+              Настроить Firebase
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -45,7 +60,7 @@ export function StandsPage() {
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
             <Input
-              placeholder="Поиск по названию или языку..."
+              placeholder="Поиск по названию..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
@@ -62,7 +77,7 @@ export function StandsPage() {
                     <img
                       src={stand.imageUrl}
                       alt={stand.name}
-                      className="w-20 h-20 object-cover rounded-lg"
+                      className="w-20 h-32 object-cover rounded-lg"
                     />
                   )}
                   
@@ -70,19 +85,6 @@ export function StandsPage() {
                     <h3 className="font-semibold text-lg mb-2">{stand.name}</h3>
                     <p className="text-gray-600 mb-2">Состояние: {stand.condition}</p>
                     
-                    {stand.languages.length > 0 && (
-                      <div className="mb-2">
-                        <span className="text-sm text-gray-500">Языки: </span>
-                        <div className="inline-flex flex-wrap gap-1">
-                          {stand.languages.map(lang => (
-                            <span key={lang} className="px-2 py-1 bg-blue-100 text-blue-800 rounded text-xs">
-                              {lang}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
                     {stand.inventory.length > 0 && (
                       <div className="mb-2">
                         <span className="text-sm text-gray-500">Инвентарь: </span>
