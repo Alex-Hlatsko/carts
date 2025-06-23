@@ -1,8 +1,7 @@
 export interface Stand {
   id: string;
+  number: string;
   name: string;
-  condition: string;
-  inventory: string[];
   dateAdded: Date;
   imageUrl?: string;
 }

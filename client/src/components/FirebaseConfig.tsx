@@ -5,16 +5,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { configureFirebase, clearFirebaseConfig, isFirebaseInitialized } from '@/lib/firebase';
-import { Save, Trash2 } from 'lucide-react';
+import { FirebaseConfig as FirebaseConfigType } from '@/types';
+import { Save, Trash2, AlertTriangle, ExternalLink } from 'lucide-react';
 
 export function FirebaseConfig() {
-  const [config, setConfig] = useState<FirebaseConfig>({
-    apiKey: "AIzaSyBB0dOHC8-nA6c6fGWglFQRR8pdCs-LAic",
-  authDomain: "jwcarts-82c8f.firebaseapp.com",
-  projectId: "jwcarts-82c8f",
-  storageBucket: "jwcarts-82c8f.firebasestorage.app",
-  messagingSenderId: "602423977795",
-  appId: "1:602423977795:web:c61436084821d5c24af1f6",
+  const [config, setConfig] = useState<FirebaseConfigType>({
+    apiKey: '',
+    authDomain: '',
+    projectId: '',
+    storageBucket: '',
+    messagingSenderId: '',
+    appId: '',
   });
 
   const [isConnected, setIsConnected] = useState(false);
@@ -43,7 +44,7 @@ export function FirebaseConfig() {
       configureFirebase(config);
       setIsConnected(true);
       alert('Firebase успешно настроен!');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Firebase configuration error:', error);
       alert('Ошибка настройки Firebase: ' + error.message);
     }
@@ -65,7 +66,7 @@ export function FirebaseConfig() {
     }
   };
 
-  const updateConfig = (key: keyof FirebaseConfig, value: string) => {
+  const updateConfig = (key: keyof FirebaseConfigType, value: string) => {
     setConfig(prev => ({
       ...prev,
       [key]: value
@@ -79,7 +80,7 @@ export function FirebaseConfig() {
           <CardTitle>Настройка Firebase</CardTitle>
           <div className="flex items-center gap-2">
             <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-            <span className="text-sm text-gray-600">
+            <span className="text-sm text-muted-foreground">
               {isConnected ? 'Подключено' : 'Не подключено'}
             </span>
           </div>
@@ -118,7 +119,7 @@ export function FirebaseConfig() {
         </div>
 
         <div>
-          <Label htmlFor="storageBucket">Storage Bucket</Label>
+          <Label htmlFor="storageBucket">Storage Bucket *</Label>
           <Input
             id="storageBucket"
             value={config.storageBucket}
@@ -158,15 +159,77 @@ export function FirebaseConfig() {
           </Button>
         </div>
 
-        <div className="text-sm text-gray-600 space-y-2 pt-4 border-t">
+        <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-4 mt-4">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-red-500 mt-0.5" />
+            <div className="text-sm">
+              <p className="font-medium text-red-500 mb-2">ВАЖНО: Настройка Firebase Storage</p>
+              <p className="text-muted-foreground mb-3">
+                Для работы загрузки изображений выполните следующие шаги:
+              </p>
+              
+              <div className="space-y-3">
+                <div>
+                  <p className="font-medium text-red-400 mb-1">1. Настройка Storage Rules:</p>
+                  <ol className="list-decimal list-inside space-y-1 text-muted-foreground text-xs ml-3">
+                    <li>Перейдите в <a href="https://console.firebase.google.com" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-1">Firebase Console <ExternalLink className="h-3 w-3" /></a></li>
+                    <li>Storage → Rules</li>
+                    <li>Замените правила на код ниже:</li>
+                  </ol>
+                  <pre className="bg-muted p-2 rounded text-xs mt-2 overflow-x-auto">
+{`rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /{allPaths=**} {
+      allow read, write: if true;
+    }
+  }
+}`}
+                  </pre>
+                </div>
+
+                <div>
+                  <p className="font-medium text-red-400 mb-1">2. Настройка CORS:</p>
+                  <ol className="list-decimal list-inside space-y-1 text-muted-foreground text-xs ml-3">
+                    <li>Откройте Google Cloud Console</li>
+                    <li>Cloud Storage → Buckets → Ваш bucket</li>
+                    <li>Permissions → Add Principal</li>
+                    <li>New principals: <code className="bg-muted px-1 rounded">allUsers</code></li>
+                    <li>Role: <code className="bg-muted px-1 rounded">Storage Object Viewer</code></li>
+                  </ol>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Или через gsutil (если установлен):
+                  </p>
+                  <pre className="bg-muted p-2 rounded text-xs mt-1 overflow-x-auto">
+{`gsutil cors set cors.json gs://your-bucket-name`}
+                  </pre>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    где cors.json содержит:
+                  </p>
+                  <pre className="bg-muted p-2 rounded text-xs mt-1 overflow-x-auto">
+{`[
+  {
+    "origin": ["*"],
+    "method": ["GET", "POST", "PUT"],
+    "maxAgeSeconds": 3600
+  }
+]`}
+                  </pre>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="text-sm text-muted-foreground space-y-2 pt-4 border-t">
           <p><strong>Как получить настройки Firebase:</strong></p>
           <ol className="list-decimal list-inside space-y-1">
-            <li>Перейдите в <a href="https://console.firebase.google.com" target="_blank" className="text-blue-600 hover:underline">Firebase Console</a></li>
+            <li>Перейдите в <a href="https://console.firebase.google.com" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline inline-flex items-center gap-1">Firebase Console <ExternalLink className="h-3 w-3" /></a></li>
             <li>Выберите или создайте проект</li>
+            <li>Включите Firestore Database и Storage</li>
             <li>Перейдите в Project Settings (шестеренка)</li>
             <li>В разделе "Your apps" добавьте Web App</li>
             <li>Скопируйте конфигурацию из объекта firebaseConfig</li>
-            <li>Включите Firestore Database и Storage</li>
           </ol>
         </div>
       </CardContent>

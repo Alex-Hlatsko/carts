@@ -1,16 +1,14 @@
 import * as React from 'react';
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ChecklistEditor } from '@/components/ChecklistEditor';
 import { FirebaseConfig } from '@/components/FirebaseConfig';
 import { useCollection } from '@/hooks/useFirestore';
 import { ChecklistConfig, ChecklistItem } from '@/types';
-import { ArrowLeft, Save, RotateCcw } from 'lucide-react';
+import { Save, RotateCcw } from 'lucide-react';
 
 export function SettingsPage() {
-  const navigate = useNavigate();
   const { data: checklistConfigs, addDocument, updateDocument, error } = useCollection<ChecklistConfig>('checklists');
   const [currentConfig, setCurrentConfig] = useState<ChecklistConfig | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
@@ -114,12 +112,9 @@ export function SettingsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
+    <div className="min-h-screen bg-background p-4">
       <div className="max-w-4xl mx-auto">
-        <div className="flex items-center gap-4 mb-6">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
+        <div className="mb-6">
           <h1 className="text-2xl font-bold">Настройки</h1>
         </div>
 
@@ -151,8 +146,8 @@ export function SettingsPage() {
                   />
                 ) : (
                   <div className="text-center py-8">
-                    <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500 mx-auto"></div>
-                    <p className="mt-4 text-gray-600">Загрузка конфигурации...</p>
+                    <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary mx-auto"></div>
+                    <p className="mt-4 text-muted-foreground">Загрузка конфигурации...</p>
                   </div>
                 )}
               </CardContent>

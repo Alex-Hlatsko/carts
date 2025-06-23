@@ -9,7 +9,7 @@ import { QRGenerator } from '@/components/QRGenerator';
 import { ChecklistForm } from '@/components/ChecklistForm';
 import { useCollection } from '@/hooks/useFirestore';
 import { Stand, Report, ChecklistConfig } from '@/types';
-import { ArrowLeft, Download, Upload, QrCode } from 'lucide-react';
+import { Download, Upload, QrCode } from 'lucide-react';
 import { doc, getDoc } from 'firebase/firestore';
 import { getFirebaseInstances, isFirebaseInitialized } from '@/lib/firebase';
 
@@ -69,7 +69,7 @@ export function StandDetailsPage() {
     try {
       const reportData: Omit<Report, 'id'> = {
         standId: stand.id,
-        standName: stand.name,
+        standName: `#${stand.number} - ${stand.name}`,
         action,
         handledBy: handledBy.trim(),
         handledTo: action === 'issue' ? handledTo.trim() : undefined,
@@ -117,11 +117,11 @@ export function StandDetailsPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card>
           <CardContent className="p-6 text-center">
             <h2 className="text-xl font-semibold mb-4">Ошибка</h2>
-            <p className="text-gray-600 mb-4">{error}</p>
+            <p className="text-muted-foreground mb-4">{error}</p>
             <Button onClick={() => navigate('/settings')}>
               Настроить Firebase
             </Button>
@@ -133,10 +133,10 @@ export function StandDetailsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-blue-500 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Загрузка данных...</p>
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Загрузка данных...</p>
         </div>
       </div>
     );
@@ -144,7 +144,7 @@ export function StandDetailsPage() {
 
   if (!stand) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <Card>
           <CardContent className="p-12 text-center">
             <h2 className="text-xl font-semibold mb-4">Стенд не найден</h2>
@@ -156,13 +156,12 @@ export function StandDetailsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
+    <div className="min-h-screen bg-background p-4">
       <div className="max-w-2xl mx-auto">
-        <div className="flex items-center gap-4 mb-6">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <h1 className="text-2xl font-bold">{stand.name}</h1>
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold">
+            <span className="text-primary">#{stand.number}</span> - {stand.name}
+          </h1>
         </div>
 
         {!action && (
@@ -173,34 +172,28 @@ export function StandDetailsPage() {
               </CardHeader>
               <CardContent className="space-y-4">
                 {stand.imageUrl && (
-                  <img
-                    src={stand.imageUrl}
-                    alt={stand.name}
-                    className="w-full max-w-xs mx-auto rounded-lg aspect-[3/4] object-cover"
-                  />
+                  <div className="flex justify-center">
+                    <img
+                      src={stand.imageUrl}
+                      alt={stand.name}
+                      className="w-48 h-72 object-cover rounded-lg shadow-lg border border-border"
+                    />
+                  </div>
                 )}
                 
                 <div>
-                  <Label>Состояние</Label>
-                  <p className="text-gray-700">{stand.condition}</p>
+                  <Label>Номер стенда</Label>
+                  <p className="text-foreground font-mono text-lg">#{stand.number}</p>
                 </div>
 
-                {stand.inventory.length > 0 && (
-                  <div>
-                    <Label>Инвентарь</Label>
-                    <div className="flex flex-wrap gap-2 mt-1">
-                      {stand.inventory.map(item => (
-                        <span key={item} className="px-2 py-1 bg-green-100 text-green-800 rounded text-sm">
-                          {item}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                <div>
+                  <Label>Название</Label>
+                  <p className="text-foreground">{stand.name}</p>
+                </div>
 
                 <div>
                   <Label>Дата добавления</Label>
-                  <p className="text-gray-700">{stand.dateAdded.toLocaleDateString('ru-RU')}</p>
+                  <p className="text-foreground">{stand.dateAdded.toLocaleDateString('ru-RU')}</p>
                 </div>
               </CardContent>
             </Card>
@@ -238,7 +231,7 @@ export function StandDetailsPage() {
               <Card>
                 <CardContent className="p-6 text-center">
                   <QRGenerator value={stand.id} size={200} />
-                  <p className="text-sm text-gray-500 mt-2">QR-код для стенда</p>
+                  <p className="text-sm text-muted-foreground mt-2">QR-код для стенда</p>
                 </CardContent>
               </Card>
             )}
