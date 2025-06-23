@@ -18,10 +18,11 @@ export function StandsPage() {
   const [showQR, setShowQR] = useState<string | null>(null);
   const [selectedStand, setSelectedStand] = useState<string | null>(null);
 
-  const filteredStands = stands.filter(stand =>
-    stand.theme.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    stand.number.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredStands = (stands || []).filter(stand =>
+  (stand.theme?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+  (stand.number?.toLowerCase() || '').includes(searchTerm.toLowerCase())
+);
+
 
   const handleDeleteStand = async (stand: Stand) => {
     if (confirm(`Вы уверены, что хотите удалить стенд "${stand.number} - ${stand.theme}"?`)) {
