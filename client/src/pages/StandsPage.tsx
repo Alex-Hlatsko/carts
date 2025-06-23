@@ -5,20 +5,35 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { QRGenerator } from '@/components/QRGenerator';
+import { StandVisualizer } from '@/components/StandVisualizer';
 import { useCollection } from '@/hooks/useFirestore';
-import { Stand } from '@/types';
-import { Search, QrCode, Eye } from 'lucide-react';
+import { Stand, Material } from '@/types';
+import { Search, QrCode, Eye, Trash2 } from 'lucide-react';
 
 export function StandsPage() {
   const navigate = useNavigate();
-  const { data: stands, loading, error } = useCollection<Stand>('stands');
+  const { data: stands, loading, error, deleteDocument } = useCollection<Stand>('stands');
+  const { data: materials } = useCollection<Material>('materials');
   const [searchTerm, setSearchTerm] = useState('');
   const [showQR, setShowQR] = useState<string | null>(null);
+  const [selectedStand, setSelectedStand] = useState<string | null>(null);
 
   const filteredStands = stands.filter(stand =>
-    stand.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    stand.theme.toLowerCase().includes(searchTerm.toLowerCase()) ||
     stand.number.toLowerCase().includes(searchTerm.toLowerCase())
   );
+
+  const handleDeleteStand = async (stand: Stand) => {
+    if (confirm(`Вы уверены, что хотите удалить стенд "${stand.number} - ${stand.theme}"?`)) {
+      try {
+        await deleteDocument(stand.id);
+        alert('Стенд успешно удалён');
+      } catch (error) {
+        console.error('Error deleting stand:', error);
+        alert('Ошибка при удалении стенда');
+      }
+    }
+  };
 
   if (error) {
     return (
@@ -49,14 +64,14 @@ export function StandsPage() {
 
   return (
     <div className="min-h-screen bg-background p-4">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         <div className="mb-6">
           <h1 className="text-2xl font-bold mb-4">Все стенды</h1>
           
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
             <Input
-              placeholder="Поиск по номеру или названию..."
+              placeholder="Поиск по номеру или теме..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10"
@@ -64,56 +79,70 @@ export function StandsPage() {
           </div>
         </div>
 
-        <div className="grid gap-4">
+        <div className="grid gap-6">
           {filteredStands.map(stand => (
-            <Card key={stand.id}>
-              <CardContent className="p-6">
-                <div className="flex gap-4">
-                  {stand.imageUrl && (
-                    <img
-                      src={stand.imageUrl}
-                      alt={stand.name}
-                      className="w-20 h-28 object-cover rounded-lg flex-shrink-0 border border-border"
-                    />
+            <div key={stand.id}>
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <h3 className="font-semibold text-lg mb-2">
+                        <span className="text-primary">#{stand.number}</span> - {stand.theme}
+                      </h3>
+                      <p className="text-xs text-muted-foreground">
+                        Добавлен: {stand.dateAdded.toLocaleDateString('ru-RU')}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => navigate(`/stand/${stand.id}`)}
+                      >
+                        <Eye className="h-4 w-4 mr-1" />
+                        Открыть
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowQR(showQR === stand.id ? null : stand.id)}
+                      >
+                        <QrCode className="h-4 w-4 mr-1" />
+                        QR
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSelectedStand(selectedStand === stand.id ? null : stand.id)}
+                      >
+                        Макет
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => handleDeleteStand(stand)}
+                      >
+                        <Trash2 className="h-4 w-4 mr-1" />
+                        Удалить
+                      </Button>
+                    </div>
+                  </div>
+
+                  {showQR === stand.id && (
+                    <div className="mt-4 pt-4 border-t text-center">
+                      <QRGenerator value={stand.id} size={150} />
+                      <p className="text-xs text-muted-foreground mt-2">QR-код для стенда</p>
+                    </div>
                   )}
-                  
-                  <div className="flex-1">
-                    <h3 className="font-semibold text-lg mb-2">
-                      <span className="text-primary">#{stand.number}</span> - {stand.name}
-                    </h3>
+                </CardContent>
+              </Card>
 
-                    <p className="text-xs text-muted-foreground">
-                      Добавлен: {stand.dateAdded.toLocaleDateString('ru-RU')}
-                    </p>
-                  </div>
-
-                  <div className="flex flex-col gap-2">
-                    <Button
-                      size="sm"
-                      onClick={() => navigate(`/stand/${stand.id}`)}
-                    >
-                      <Eye className="h-4 w-4 mr-1" />
-                      Открыть
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowQR(showQR === stand.id ? null : stand.id)}
-                    >
-                      <QrCode className="h-4 w-4 mr-1" />
-                      QR
-                    </Button>
-                  </div>
+              {selectedStand === stand.id && (
+                <div className="mt-4">
+                  <StandVisualizer stand={stand} materials={materials} />
                 </div>
-
-                {showQR === stand.id && (
-                  <div className="mt-4 pt-4 border-t text-center">
-                    <QRGenerator value={stand.id} size={150} />
-                    <p className="text-xs text-muted-foreground mt-2">QR-код для стенда</p>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+              )}
+            </div>
           ))}
         </div>
 

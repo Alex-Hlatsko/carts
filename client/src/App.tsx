@@ -5,6 +5,7 @@ import { HomePage } from '@/pages/HomePage';
 import { AddStandPage } from '@/pages/AddStandPage';
 import { StandsPage } from '@/pages/StandsPage';
 import { StandDetailsPage } from '@/pages/StandDetailsPage';
+import { MaterialsPage } from '@/pages/MaterialsPage';
 import { ReportsPage } from '@/pages/ReportsPage';
 import { SettingsPage } from '@/pages/SettingsPage';
 
@@ -18,6 +19,7 @@ function App() {
           <Route path="/add-stand" element={<AddStandPage />} />
           <Route path="/stands" element={<StandsPage />} />
           <Route path="/stand/:id" element={<StandDetailsPage />} />
+          <Route path="/materials" element={<MaterialsPage />} />
           <Route path="/reports" element={<ReportsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Routes>

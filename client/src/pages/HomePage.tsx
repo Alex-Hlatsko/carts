@@ -2,9 +2,9 @@ import * as React from 'react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { QRScanner } from '@/components/QRScanner';
-import { QrCode, Plus, List, Download, Settings } from 'lucide-react';
+import { QrCode, Plus, List, Download, Settings, BookOpen } from 'lucide-react';
 
 export function HomePage() {
   const navigate = useNavigate();
@@ -36,6 +36,13 @@ export function HomePage() {
       icon: List,
       onClick: () => navigate('/stands'),
       color: 'bg-purple-600 hover:bg-purple-700'
+    },
+    {
+      title: 'Материалы',
+      description: 'Управление литературой и материалами',
+      icon: BookOpen,
+      onClick: () => navigate('/materials'),
+      color: 'bg-indigo-600 hover:bg-indigo-700'
     },
     {
       title: 'Отчёты',

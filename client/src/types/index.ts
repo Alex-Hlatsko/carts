@@ -1,9 +1,22 @@
+export interface Material {
+  id: string;
+  name: string;
+  imageUrl: string;
+  dateAdded: Date;
+}
+
+export interface Shelf {
+  id: string;
+  number: 1 | 2 | 3;
+  materials: string[]; // Array of material IDs
+}
+
 export interface Stand {
   id: string;
   number: string;
-  name: string;
+  theme: string;
+  shelves: Shelf[];
   dateAdded: Date;
-  imageUrl?: string;
 }
 
 export interface ChecklistItem {

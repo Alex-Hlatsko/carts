@@ -5,23 +5,34 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { ImageUpload } from '@/components/ImageUpload';
+import { MaterialSelector } from '@/components/MaterialSelector';
 import { useCollection } from '@/hooks/useFirestore';
-import { useImageUpload } from '@/hooks/useImageUpload';
-import { Stand } from '@/types';
+import { Stand, Material } from '@/types';
 import { Save } from 'lucide-react';
 
 export function AddStandPage() {
   const navigate = useNavigate();
   const { addDocument, error: firestoreError } = useCollection<Stand>('stands');
-  const { uploadImage, uploading } = useImageUpload();
+  const { data: materials } = useCollection<Material>('materials');
   
   const [formData, setFormData] = useState({
     number: '',
-    name: '',
+    theme: '',
   });
   
-  const [selectedImage, setSelectedImage] = useState<File | null>(null);
+  const [shelves, setShelves] = useState([
+    { id: '1', number: 1 as const, materials: [] as string[] },
+    { id: '2', number: 2 as const, materials: [] as string[] },
+    { id: '3', number: 3 as const, materials: [] as string[] },
+  ]);
+
+  const handleShelfMaterialsChange = (shelfNumber: number, materialIds: string[]) => {
+    setShelves(prev => prev.map(shelf => 
+      shelf.number === shelfNumber 
+        ? { ...shelf, materials: materialIds }
+        : shelf
+    ));
+  };
 
   const handleSubmit = async () => {
     if (!formData.number.trim()) {
@@ -29,8 +40,8 @@ export function AddStandPage() {
       return;
     }
 
-    if (!formData.name.trim()) {
-      alert('Пожалуйста, введите название стенда');
+    if (!formData.theme.trim()) {
+      alert('Пожалуйста, введите тему стенда');
       return;
     }
 
@@ -40,16 +51,9 @@ export function AddStandPage() {
     }
 
     try {
-      let imageUrl = '';
-      
-      if (selectedImage) {
-        const url = await uploadImage(selectedImage, 'stands');
-        if (url) imageUrl = url;
-      }
-
       const standData: Omit<Stand, 'id'> = {
         ...formData,
-        imageUrl,
+        shelves,
         dateAdded: new Date(),
       };
 
@@ -87,7 +91,7 @@ export function AddStandPage() {
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <CardTitle>Информация о стенде</CardTitle>
+              <CardTitle>Основная информация</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
@@ -101,33 +105,35 @@ export function AddStandPage() {
               </div>
 
               <div>
-                <Label htmlFor="name">Название стенда</Label>
+                <Label htmlFor="theme">Тема стенда</Label>
                 <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="Введите название стенда"
+                  id="theme"
+                  value={formData.theme}
+                  onChange={(e) => setFormData(prev => ({ ...prev, theme: e.target.value }))}
+                  placeholder="Введите тему стенда"
                 />
               </div>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Изображение стенда</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <ImageUpload onImageSelect={setSelectedImage} />
-            </CardContent>
-          </Card>
+          {shelves.map(shelf => (
+            <Card key={shelf.id}>
+              <CardHeader>
+                <CardTitle>Полка {shelf.number}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <MaterialSelector
+                  selectedMaterials={shelf.materials}
+                  availableMaterials={materials}
+                  onSelectionChange={(materialIds) => handleShelfMaterialsChange(shelf.number, materialIds)}
+                />
+              </CardContent>
+            </Card>
+          ))}
 
-          <Button 
-            onClick={handleSubmit} 
-            className="w-full" 
-            disabled={uploading}
-          >
+          <Button onClick={handleSubmit} className="w-full">
             <Save className="h-4 w-4 mr-2" />
-            {uploading ? 'Сохранение...' : 'Сохранить стенд'}
+            Сохранить стенд
           </Button>
         </div>
       </div>

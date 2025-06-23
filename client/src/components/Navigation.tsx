@@ -1,7 +1,7 @@
 import * as React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Home, Plus, List, FileText, Settings, QrCode } from 'lucide-react';
+import { Home, Plus, List, FileText, Settings, QrCode, BookOpen } from 'lucide-react';
 
 export function Navigation() {
   const navigate = useNavigate();
@@ -11,6 +11,7 @@ export function Navigation() {
     { path: '/', icon: Home, label: 'Главная' },
     { path: '/add-stand', icon: Plus, label: 'Добавить' },
     { path: '/stands', icon: List, label: 'Стенды' },
+    { path: '/materials', icon: BookOpen, label: 'Материалы' },
     { path: '/reports', icon: FileText, label: 'Отчёты' },
     { path: '/settings', icon: Settings, label: 'Настройки' },
   ];

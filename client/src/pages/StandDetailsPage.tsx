@@ -7,9 +7,10 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { QRGenerator } from '@/components/QRGenerator';
 import { ChecklistForm } from '@/components/ChecklistForm';
+import { StandVisualizer } from '@/components/StandVisualizer';
 import { useCollection } from '@/hooks/useFirestore';
-import { Stand, Report, ChecklistConfig } from '@/types';
-import { Download, Upload, QrCode } from 'lucide-react';
+import { Stand, Report, ChecklistConfig, Material } from '@/types';
+import { Download, Upload, QrCode, Trash2 } from 'lucide-react';
 import { doc, getDoc } from 'firebase/firestore';
 import { getFirebaseInstances, isFirebaseInitialized } from '@/lib/firebase';
 
@@ -18,6 +19,8 @@ export function StandDetailsPage() {
   const navigate = useNavigate();
   const { addDocument: addReport } = useCollection<Report>('reports');
   const { data: checklistConfigs } = useCollection<ChecklistConfig>('checklists');
+  const { data: materials } = useCollection<Material>('materials');
+  const { deleteDocument } = useCollection<Stand>('stands');
   
   const [stand, setStand] = useState<Stand | null>(null);
   const [loading, setLoading] = useState(true);
@@ -60,6 +63,21 @@ export function StandDetailsPage() {
     }
   };
 
+  const handleDeleteStand = async () => {
+    if (!stand) return;
+    
+    if (confirm(`Вы уверены, что хотите удалить стенд "${stand.number} - ${stand.theme}"?`)) {
+      try {
+        await deleteDocument(stand.id);
+        alert('Стенд успешно удалён');
+        navigate('/stands');
+      } catch (error) {
+        console.error('Error deleting stand:', error);
+        alert('Ошибка при удалении стенда');
+      }
+    }
+  };
+
   const handleChecklistSubmit = async (checklistResponses: Record<string, any>) => {
     if (!stand || !action || !handledBy.trim()) {
       alert('Пожалуйста, заполните все обязательные поля');
@@ -69,7 +87,7 @@ export function StandDetailsPage() {
     try {
       const reportData: Omit<Report, 'id'> = {
         standId: stand.id,
-        standName: `#${stand.number} - ${stand.name}`,
+        standName: `#${stand.number} - ${stand.theme}`,
         action,
         handledBy: handledBy.trim(),
         handledTo: action === 'issue' ? handledTo.trim() : undefined,
@@ -157,84 +175,87 @@ export function StandDetailsPage() {
 
   return (
     <div className="min-h-screen bg-background p-4">
-      <div className="max-w-2xl mx-auto">
-        <div className="mb-6">
+      <div className="max-w-4xl mx-auto">
+        <div className="mb-6 flex justify-between items-center">
           <h1 className="text-2xl font-bold">
-            <span className="text-primary">#{stand.number}</span> - {stand.name}
+            <span className="text-primary">#{stand.number}</span> - {stand.theme}
           </h1>
+          <Button
+            variant="destructive"
+            onClick={handleDeleteStand}
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            Удалить стенд
+          </Button>
         </div>
 
         {!action && (
-          <div className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Информация о стенде</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {stand.imageUrl && (
-                  <div className="flex justify-center">
-                    <img
-                      src={stand.imageUrl}
-                      alt={stand.name}
-                      className="w-48 h-72 object-cover rounded-lg shadow-lg border border-border"
-                    />
-                  </div>
-                )}
-                
-                <div>
-                  <Label>Номер стенда</Label>
-                  <p className="text-foreground font-mono text-lg">#{stand.number}</p>
-                </div>
-
-                <div>
-                  <Label>Название</Label>
-                  <p className="text-foreground">{stand.name}</p>
-                </div>
-
-                <div>
-                  <Label>Дата добавления</Label>
-                  <p className="text-foreground">{stand.dateAdded.toLocaleDateString('ru-RU')}</p>
-                </div>
-              </CardContent>
-            </Card>
-
-            <div className="grid grid-cols-1 gap-4">
-              <Button 
-                size="lg" 
-                className="h-16"
-                onClick={() => setAction('receive')}
-              >
-                <Download className="h-6 w-6 mr-2" />
-                Принять стенд
-              </Button>
-              <Button 
-                size="lg" 
-                variant="outline" 
-                className="h-16"
-                onClick={() => setAction('issue')}
-              >
-                <Upload className="h-6 w-6 mr-2" />
-                Выдать стенд
-              </Button>
-              <Button 
-                size="lg" 
-                variant="outline" 
-                className="h-16"
-                onClick={() => setShowQR(!showQR)}
-              >
-                <QrCode className="h-6 w-6 mr-2" />
-                {showQR ? 'Скрыть QR-код' : 'Показать QR-код'}
-              </Button>
-            </div>
-
-            {showQR && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="space-y-6">
               <Card>
-                <CardContent className="p-6 text-center">
-                  <QRGenerator value={stand.id} size={200} />
-                  <p className="text-sm text-muted-foreground mt-2">QR-код для стенда</p>
+                <CardHeader>
+                  <CardTitle>Информация о стенде</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label>Номер стенда</Label>
+                    <p className="text-foreground font-mono text-lg">#{stand.number}</p>
+                  </div>
+
+                  <div>
+                    <Label>Тема</Label>
+                    <p className="text-foreground">{stand.theme}</p>
+                  </div>
+
+                  <div>
+                    <Label>Дата добавления</Label>
+                    <p className="text-foreground">{stand.dateAdded.toLocaleDateString('ru-RU')}</p>
+                  </div>
                 </CardContent>
               </Card>
-            )}
+
+              <div className="grid grid-cols-1 gap-4">
+                <Button 
+                  size="lg" 
+                  className="h-16"
+                  onClick={() => setAction('receive')}
+                >
+                  <Download className="h-6 w-6 mr-2" />
+                  Принять стенд
+                </Button>
+                <Button 
+                  size="lg" 
+                  variant="outline" 
+                  className="h-16"
+                  onClick={() => setAction('issue')}
+                >
+                  <Upload className="h-6 w-6 mr-2" />
+                  Выдать стенд
+                </Button>
+                <Button 
+                  size="lg" 
+                  variant="outline" 
+                  className="h-16"
+                  onClick={() => setShowQR(!showQR)}
+                >
+                  <QrCode className="h-6 w-6 mr-2" />
+                  {showQR ? 'Скрыть QR-код' : 'Показать QR-код'}
+                </Button>
+              </div>
+
+              {showQR && (
+                <Card>
+                  <CardContent className="p-6 text-center">
+                    <QRGenerator value={stand.id} size={200} />
+                    <p className="text-sm text-muted-foreground mt-2">QR-код для стенда</p>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
+
+            <div>
+              <StandVisualizer stand={stand} materials={materials} />
+            </div>
           </div>
         )}
 
