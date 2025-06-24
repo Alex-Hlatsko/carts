@@ -1,49 +1,89 @@
 import * as React from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Home, Plus, List, FileText, Settings, QrCode, BookOpen } from 'lucide-react';
+import { QrCode, Package, Monitor, Plus, Settings, FileText, Menu, X } from 'lucide-react';
 
 export function Navigation() {
-  const navigate = useNavigate();
   const location = useLocation();
+  const [isMenuOpen, setIsMenuOpen] = React.useState(false);
 
   const navItems = [
-    { path: '/', icon: Home, label: 'Главная' },
-    { path: '/add-stand', icon: Plus, label: 'Добавить' },
-    { path: '/stands', icon: List, label: 'Стенды' },
-    { path: '/materials', icon: BookOpen, label: 'Материалы' },
-    { path: '/reports', icon: FileText, label: 'Отчёты' },
+    { path: '/', icon: QrCode, label: 'Сканер' },
+    { path: '/materials', icon: Package, label: 'Материалы' },
+    { path: '/stands', icon: Monitor, label: 'Стенды' },
+    { path: '/add-stand', icon: Plus, label: 'Добавить стенд' },
     { path: '/settings', icon: Settings, label: 'Настройки' },
+    { path: '/reports', icon: FileText, label: 'Отчёты' }
   ];
 
+  const handleLinkClick = () => {
+    setIsMenuOpen(false);
+  };
+
   return (
-    <div className="bg-card border-b border-border">
-      <div className="max-w-7xl mx-auto px-4">
+    <nav className="border-b bg-background">
+      <div className="container mx-auto px-4">
         <div className="flex items-center justify-between h-16">
-          <div className="flex items-center space-x-2">
-            <QrCode className="h-8 w-8 text-primary" />
-            <h1 className="text-xl font-bold">Учёт стендов</h1>
-          </div>
+          <h1 className="text-lg md:text-xl font-bold">Система стендов</h1>
           
-          <nav className="flex space-x-1">
+          {/* Desktop Navigation */}
+          <div className="hidden md:flex space-x-2">
             {navItems.map((item) => {
+              const Icon = item.icon;
               const isActive = location.pathname === item.path;
               return (
                 <Button
                   key={item.path}
                   variant={isActive ? "default" : "ghost"}
                   size="sm"
-                  onClick={() => navigate(item.path)}
-                  className="flex items-center gap-2"
+                  asChild
                 >
-                  <item.icon className="h-4 w-4" />
-                  <span className="hidden sm:inline">{item.label}</span>
+                  <Link to={item.path}>
+                    <Icon className="h-4 w-4 mr-2" />
+                    {item.label}
+                  </Link>
                 </Button>
               );
             })}
-          </nav>
+          </div>
+
+          {/* Mobile Menu Button */}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="md:hidden"
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+          >
+            {isMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </Button>
         </div>
+
+        {/* Mobile Navigation */}
+        {isMenuOpen && (
+          <div className="md:hidden pb-4">
+            <div className="flex flex-col space-y-2">
+              {navItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = location.pathname === item.path;
+                return (
+                  <Button
+                    key={item.path}
+                    variant={isActive ? "default" : "ghost"}
+                    size="sm"
+                    asChild
+                    className="justify-start"
+                  >
+                    <Link to={item.path} onClick={handleLinkClick}>
+                      <Icon className="h-4 w-4 mr-2" />
+                      {item.label}
+                    </Link>
+                  </Button>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </div>
-    </div>
+    </nav>
   );
 }

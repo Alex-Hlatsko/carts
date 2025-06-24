@@ -1,65 +1,14 @@
-import { initializeApp, FirebaseApp } from 'firebase/app';
-import { getFirestore, Firestore } from 'firebase/firestore';
-import { getStorage, FirebaseStorage } from 'firebase/storage';
-import { FirebaseConfig } from '@/types';
+import { initializeApp } from 'firebase/app';
+import { getFirestore } from 'firebase/firestore';
 
-let app: FirebaseApp | null = null;
-let db: Firestore | null = null;
-let storage: FirebaseStorage | null = null;
-
-const getStoredConfig = (): FirebaseConfig | null => {
-  try {
-    const stored = localStorage.getItem('firebaseConfig');
-    return stored ? JSON.parse(stored) : null;
-  } catch {
-    return null;
-  }
+const firebaseConfig = {
+  apiKey: "AIzaSyBB0dOHC8-nA6c6fGWglFQRR8pdCs-LAic",
+  authDomain: "jwcarts-82c8f.firebaseapp.com",
+  projectId: "jwcarts-82c8f",
+  storageBucket: "jwcarts-82c8f.firebasestorage.app",
+  messagingSenderId: "602423977795",
+  appId: "1:602423977795:web:c61436084821d5c24af1f6"
 };
 
-const initializeFirebase = (config: FirebaseConfig) => {
-  try {
-    app = initializeApp(config);
-    db = getFirestore(app);
-    storage = getStorage(app);
-    localStorage.setItem('firebaseConfig', JSON.stringify(config));
-    return { app, db, storage };
-  } catch (error) {
-    console.error('Failed to initialize Firebase:', error);
-    throw error;
-  }
-};
-
-// Auto-initialize if config exists
-const storedConfig = getStoredConfig();
-if (storedConfig) {
-  try {
-    initializeFirebase(storedConfig);
-  } catch (error) {
-    console.warn('Failed to auto-initialize Firebase with stored config');
-  }
-}
-
-export const getFirebaseInstances = () => {
-  if (!app || !db || !storage) {
-    throw new Error('Firebase not initialized. Please configure Firebase first.');
-  }
-  return { app, db, storage };
-};
-
-export const isFirebaseInitialized = () => {
-  return !!(app && db && storage);
-};
-
-export const configureFirebase = (config: FirebaseConfig) => {
-  return initializeFirebase(config);
-};
-
-export const clearFirebaseConfig = () => {
-  localStorage.removeItem('firebaseConfig');
-  app = null;
-  db = null;
-  storage = null;
-};
-
-export { db, storage };
-export default app;
+const app = initializeApp(firebaseConfig);
+export const db = getFirestore(app);
