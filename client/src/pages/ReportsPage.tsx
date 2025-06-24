@@ -1,4 +1,4 @@
-import * as React from 'react';
+import React from 'react';
 import { Input } from '@/components/ui/input';
 import { ReportCard } from '@/components/reports/ReportCard';
 import { ReportDetailDialog } from '@/components/reports/ReportDetailDialog';

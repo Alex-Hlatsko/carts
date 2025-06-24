@@ -1,4 +1,4 @@
-import * as React from 'react';
+import React from 'react';
 import { QRScanner } from '@/components/scanner/QRScanner';
 import { ActionDialog } from '@/components/scanner/ActionDialog';
 import { ChecklistForm } from '@/components/forms/ChecklistForm';
