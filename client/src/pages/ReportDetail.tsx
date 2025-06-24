@@ -73,14 +73,14 @@ export function ReportDetail() {
     );
   }
 
-  const needsService = !report.isServiced && (
-    report.answers.some(answer => !answer.answer) ||
-    report.answers.some(answer => answer.notes && answer.notes.trim().length > 0)
+  const needsService = !report.isServiced && report.answers && Array.isArray(report.answers) && (
+    report.answers.some(answer => answer && !answer.answer) ||
+    report.answers.some(answer => answer && answer.notes && answer.notes.trim().length > 0)
   );
 
   return (
     <Layout 
-      title={`Отчёт - Стенд #${report.standNumber}`} 
+      title={`Отчёт - Стенд #${report.standNumber || 'N/A'}`} 
       showBackButton 
       onBack={() => navigate('/reports')}
     >
@@ -91,13 +91,13 @@ export function ReportDetail() {
           </CardHeader>
           <CardContent className="space-y-3">
             <div>
-              <span className="font-medium">Стенд:</span> #{report.standNumber}
+              <span className="font-medium">Стенд:</span> #{report.standNumber || 'N/A'}
             </div>
             <div>
-              <span className="font-medium">Дата:</span> {new Date(report.date).toLocaleDateString()}
+              <span className="font-medium">Дата:</span> {report.date ? new Date(report.date).toLocaleDateString() : 'N/A'}
             </div>
             <div>
-              <span className="font-medium">Ответственный:</span> {report.responsibleName}
+              <span className="font-medium">Ответственный:</span> {report.responsibleName || 'N/A'}
             </div>
             <div>
               <span className="font-medium">Статус:</span>{' '}
@@ -106,7 +106,7 @@ export function ReportDetail() {
               </span>
               {report.isServiced && report.servicedAt && (
                 <div className="text-xs text-gray-500 mt-1">
-                  Обслужено: {new Date(report.servicedAt).toLocaleDateString()} - {report.servicedBy}
+                  Обслужено: {new Date(report.servicedAt).toLocaleDateString()} - {report.servicedBy || 'N/A'}
                 </div>
               )}
             </div>
@@ -118,28 +118,36 @@ export function ReportDetail() {
             <CardTitle>Результаты проверки</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {report.answers.map((answer, index) => (
-              <div key={answer.questionId} className="border-b border-gray-200 dark:border-gray-700 pb-3 last:border-b-0">
-                <div className="flex items-start space-x-3 mb-2">
-                  {answer.answer ? (
-                    <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5" />
-                  ) : (
-                    <XCircle className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5" />
-                  )}
-                  <div className="flex-1">
-                    <p className="font-medium text-sm">{answer.question}</p>
-                    <p className={`text-xs ${answer.answer ? 'text-green-600' : 'text-red-600'}`}>
-                      {answer.answer ? 'Да' : 'Нет'}
-                    </p>
+            {report.answers && Array.isArray(report.answers) ? (
+              report.answers.map((answer, index) => {
+                if (!answer) return null;
+                
+                return (
+                  <div key={answer.questionId || index} className="border-b border-gray-200 dark:border-gray-700 pb-3 last:border-b-0">
+                    <div className="flex items-start space-x-3 mb-2">
+                      {answer.answer ? (
+                        <CheckCircle className="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5" />
+                      ) : (
+                        <XCircle className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5" />
+                      )}
+                      <div className="flex-1">
+                        <p className="font-medium text-sm">{answer.question || 'Вопрос не указан'}</p>
+                        <p className={`text-xs ${answer.answer ? 'text-green-600' : 'text-red-600'}`}>
+                          {answer.answer ? 'Да' : 'Нет'}
+                        </p>
+                      </div>
+                    </div>
+                    {answer.notes && answer.notes.trim() && (
+                      <div className="ml-8 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded text-sm">
+                        <span className="font-medium">Замечания:</span> {answer.notes}
+                      </div>
+                    )}
                   </div>
-                </div>
-                {answer.notes && answer.notes.trim() && (
-                  <div className="ml-8 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded text-sm">
-                    <span className="font-medium">Замечания:</span> {answer.notes}
-                  </div>
-                )}
-              </div>
-            ))}
+                );
+              })
+            ) : (
+              <p className="text-gray-500 dark:text-gray-400">Нет данных проверки</p>
+            )}
           </CardContent>
         </Card>
 

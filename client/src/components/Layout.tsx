@@ -24,7 +24,7 @@ export function Layout({ children, title, showBackButton = false, onBack }: Layo
             {showBackButton && <div className="w-10"></div>}
           </div>
         </div>
-        <div className="p-4 pb-20">
+        <div className="p-4 pb-32">
           {children}
         </div>
       </div>

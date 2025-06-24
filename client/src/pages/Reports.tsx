@@ -25,9 +25,12 @@ export function Reports() {
   };
 
   const needsService = (report: Report) => {
-    return !report.isServiced && (
-      report.answers.some(answer => !answer.answer) ||
-      report.answers.some(answer => answer.notes && answer.notes.trim().length > 0)
+    if (!report || report.isServiced || !report.answers || !Array.isArray(report.answers)) {
+      return false;
+    }
+    
+    return report.answers.some(answer => 
+      answer && (!answer.answer || (answer.notes && answer.notes.trim().length > 0))
     );
   };
 
@@ -36,68 +39,73 @@ export function Reports() {
   return (
     <Layout title="Отчёты">
       <div className="space-y-4">
-        {sortedReports.map((report) => (
-          <Card key={report.id} className="hover:shadow-md transition-shadow">
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-lg">
-                  Стенд #{report.standNumber}
-                </CardTitle>
-                <div className="flex gap-1">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => navigate(`/reports/${report.id}`)}
-                  >
-                    <Eye className="h-3 w-3" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => setDeleteConfirm(report.id)}
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="pt-0">
-              <div className="space-y-2">
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  <span className="font-medium">Дата:</span>{' '}
-                  {new Date(report.date).toLocaleDateString()}
-                </p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  <span className="font-medium">Ответственный:</span> {report.responsibleName}
-                </p>
+        {sortedReports.map((report) => {
+          // Safety check for report data
+          if (!report || !report.id) return null;
+
+          return (
+            <Card key={report.id} className="hover:shadow-md transition-shadow">
+              <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
-                  <p className="text-sm">
-                    <span className="font-medium">Статус:</span>{' '}
-                    <span className={report.isServiced ? 'text-green-600' : 'text-blue-600'}>
-                      {report.isServiced ? 'Обслужено' : 'Принято'}
-                    </span>
-                    {report.isServiced && report.servicedAt && (
-                      <span className="text-xs text-gray-500 ml-2">
-                        {new Date(report.servicedAt).toLocaleDateString()}
-                      </span>
-                    )}
-                  </p>
-                  {needsService(report) && (
+                  <CardTitle className="text-lg">
+                    Стенд #{report.standNumber || 'N/A'}
+                  </CardTitle>
+                  <div className="flex gap-1">
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => navigate(`/reports/${report.id}?service=true`)}
-                      className="text-orange-600 border-orange-300 hover:bg-orange-50"
+                      onClick={() => navigate(`/reports/${report.id}`)}
                     >
-                      <Wrench className="h-3 w-3 mr-1" />
-                      Обслужить
+                      <Eye className="h-3 w-3" />
                     </Button>
-                  )}
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setDeleteConfirm(report.id)}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="space-y-2">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    <span className="font-medium">Дата:</span>{' '}
+                    {report.date ? new Date(report.date).toLocaleDateString() : 'N/A'}
+                  </p>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    <span className="font-medium">Ответственный:</span> {report.responsibleName || 'N/A'}
+                  </p>
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm">
+                      <span className="font-medium">Статус:</span>{' '}
+                      <span className={report.isServiced ? 'text-green-600' : 'text-blue-600'}>
+                        {report.isServiced ? 'Обслужено' : 'Принято'}
+                      </span>
+                      {report.isServiced && report.servicedAt && (
+                        <span className="text-xs text-gray-500 ml-2">
+                          {new Date(report.servicedAt).toLocaleDateString()}
+                        </span>
+                      )}
+                    </p>
+                    {needsService(report) && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => navigate(`/reports/${report.id}?service=true`)}
+                        className="text-orange-600 border-orange-300 hover:bg-orange-50"
+                      >
+                        <Wrench className="h-3 w-3 mr-1" />
+                        Обслужить
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })}
 
         {reports.length === 0 && (
           <div className="text-center py-8">

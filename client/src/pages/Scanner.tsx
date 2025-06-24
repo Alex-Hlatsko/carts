@@ -35,24 +35,31 @@ export function Scanner() {
     <Layout title="Сканер QR кода">
       <div className="space-y-6">
         {!scannedCode ? (
-          <QRScanner onScan={handleScan} onError={handleError} />
-        ) : (
           <div className="space-y-4">
+            <QRScanner onScan={handleScan} onError={handleError} />
+            <div className="text-center">
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Наведите камеру на QR код стенда для автоматического сканирования
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-6">
             <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
               <p className="text-sm text-green-800 dark:text-green-200 mb-2">
                 Отсканированный код:
               </p>
-              <p className="font-mono text-lg text-green-900 dark:text-green-100">
+              <p className="font-mono text-lg text-green-900 dark:text-green-100 break-all">
                 {scannedCode}
               </p>
             </div>
             
-            <div className="grid grid-cols-2 gap-3">
-              <Button onClick={handleAccept} className="h-12">
-                Принять
+            <div className="space-y-3">
+              <Button onClick={handleAccept} className="w-full h-12 text-lg">
+                Принять стенд
               </Button>
-              <Button onClick={handleIssue} variant="outline" className="h-12">
-                Выдать
+              <Button onClick={handleIssue} variant="outline" className="w-full h-12 text-lg">
+                Выдать стенд
               </Button>
             </div>
             
