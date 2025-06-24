@@ -1,128 +1,183 @@
 import * as React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Trash2, ArrowLeft } from 'lucide-react';
-import { useMaterials } from '../hooks/useMaterials';
-import { useNavigate } from 'react-router-dom';
-import toast from 'react-hot-toast';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Card, CardContent } from '@/components/ui/card';
+import { useCollection } from '@/hooks/useFirestore';
+import { Material } from '@/types';
+import { useToast, Toast } from '@/components/ui/toast';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { Plus, Trash2, Package } from 'lucide-react';
 
 export function Materials() {
-  const navigate = useNavigate();
-  const { materials, loading, addMaterial, deleteMaterial } = useMaterials();
-  const [isOpen, setIsOpen] = React.useState(false);
-  const [name, setName] = React.useState('');
-  const [imageUrl, setImageUrl] = React.useState('');
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [newMaterial, setNewMaterial] = useState({ name: '', imageUrl: '' });
+  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; materialId: string }>({
+    open: false,
+    materialId: ''
+  });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim() || !imageUrl.trim()) {
-      toast.error('Заполните все поля');
+  const { data: materials, add: addMaterial, remove: removeMaterial } = useCollection<Material>('materials');
+  const { toast, showToast, hideToast } = useToast();
+
+  const handleAddMaterial = async () => {
+    if (!newMaterial.name || !newMaterial.imageUrl) {
+      showToast('Заполните все поля', 'error');
       return;
     }
-    
-    try {
-      await addMaterial({ name, imageUrl });
-      setName('');
-      setImageUrl('');
-      setIsOpen(false);
-      toast.success('Материал успешно добавлен');
-    } catch (error) {
-      toast.error('Ошибка при добавлении материала');
+
+    const result = await addMaterial(newMaterial);
+    if (result.success) {
+      showToast('Материал успешно добавлен', 'success');
+      setNewMaterial({ name: '', imageUrl: '' });
+      setShowAddDialog(false);
+    } else {
+      showToast('Ошибка при добавлении материала', 'error');
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (confirm('Вы уверены, что хотите удалить этот материал?')) {
-      try {
-        await deleteMaterial(id);
-        toast.success('Материал удален');
-      } catch (error) {
-        toast.error('Ошибка при удалении материала');
-      }
+  const handleDeleteMaterial = async () => {
+    const result = await removeMaterial(deleteDialog.materialId);
+    if (result.success) {
+      showToast('Материал успешно удалён', 'success');
+    } else {
+      showToast('Ошибка при удалении материала', 'error');
     }
   };
-
-  if (loading) {
-    return <div className="flex justify-center p-8">Загрузка...</div>;
-  }
 
   return (
-    <div>
-      <div className="flex items-center gap-4 mb-6">
-        <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <h1 className="text-2xl font-bold">Материалы</h1>
-        <div className="ml-auto">
-          <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Добавить материал
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="mx-4">
-              <DialogHeader>
-                <DialogTitle>Добавить новый материал</DialogTitle>
-              </DialogHeader>
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                  <Label htmlFor="name">Название</Label>
-                  <Input
-                    id="name"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="Введите название материала"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="imageUrl">Ссылка на изображение</Label>
-                  <Input
-                    id="imageUrl"
-                    value={imageUrl}
-                    onChange={(e) => setImageUrl(e.target.value)}
-                    placeholder="https://example.com/image.jpg"
-                  />
-                </div>
-                <Button type="submit" className="w-full">
-                  Добавить материал
-                </Button>
-              </form>
-            </DialogContent>
-          </Dialog>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-        {materials.map((material) => (
-          <Card key={material.id}>
-            <CardHeader className="pb-2">
-              <div className="flex justify-between items-start">
-                <CardTitle className="text-base md:text-lg truncate flex-1">{material.name}</CardTitle>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => handleDelete(material.id)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="aspect-square rounded-lg overflow-hidden bg-gray-100">
-                <img
-                  src={material.imageUrl}
-                  alt={material.name}
-                  className="w-full h-full object-cover"
+    <div className="container mx-auto px-4 py-8">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">Материалы</h1>
+        <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+          <DialogTrigger asChild>
+            <Button>
+              <Plus className="w-4 h-4 mr-2" />
+              Добавить материал
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Добавить новый материал</DialogTitle>
+              <DialogDescription>
+                Заполните информацию о материале
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Название</Label>
+                <Input
+                  id="name"
+                  value={newMaterial.name}
+                  onChange={(e) => setNewMaterial(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="Введите название материала"
                 />
               </div>
-            </CardContent>
-          </Card>
-        ))}
+              
+              <div className="space-y-2">
+                <Label htmlFor="imageUrl">Ссылка на картинку</Label>
+                <Input
+                  id="imageUrl"
+                  value={newMaterial.imageUrl}
+                  onChange={(e) => setNewMaterial(prev => ({ ...prev, imageUrl: e.target.value }))}
+                  placeholder="https://example.com/image.jpg"
+                />
+              </div>
+              
+              {newMaterial.imageUrl && (
+                <div className="space-y-2">
+                  <Label>Предпросмотр</Label>
+                  <div className="w-32 h-32 border rounded-lg overflow-hidden bg-gray-100">
+                    <img 
+                      src={newMaterial.imageUrl} 
+                      alt="Предпросмотр" 
+                      className="w-full h-full object-cover"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = '/placeholder-image.png';
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowAddDialog(false)}>
+                Отмена
+              </Button>
+              <Button onClick={handleAddMaterial}>
+                Добавить
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
+
+      {materials.length === 0 ? (
+        <div className="text-center py-12">
+          <Package className="w-24 h-24 mx-auto text-muted-foreground mb-4" />
+          <h3 className="text-lg font-semibold mb-2">Нет материалов</h3>
+          <p className="text-muted-foreground mb-4">
+            Добавьте первый материал для управления стендами
+          </p>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          {materials.map((material) => (
+            <Card key={material.id} className="overflow-hidden">
+              <div className="aspect-square bg-gray-100">
+                <img 
+                  src={material.imageUrl} 
+                  alt={material.name}
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = '/placeholder-image.png';
+                  }}
+                />
+              </div>
+              <CardContent className="p-4">
+                <h3 className="font-semibold mb-2 truncate">{material.name}</h3>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => setDeleteDialog({ open: true, materialId: material.id })}
+                  className="w-full"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Удалить
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      <ConfirmDialog
+        open={deleteDialog.open}
+        onOpenChange={(open) => setDeleteDialog({ open, materialId: '' })}
+        title="Удалить материал"
+        description="Вы уверены, что хотите удалить этот материал? Это действие нельзя отменить."
+        onConfirm={handleDeleteMaterial}
+      />
+
+      {toast && (
+        <Toast 
+          message={toast.message} 
+          type={toast.type} 
+          onClose={hideToast} 
+        />
+      )}
     </div>
   );
 }

@@ -5,15 +5,19 @@ export interface Material {
   createdAt: Date;
 }
 
+export interface Shelf {
+  id: string;
+  materials: Material[];
+}
+
 export interface Stand {
   id: string;
   number: string;
   theme: string;
-  status: 'В Зале' | string; // Either "В Зале" or person's name
-  shelf1: Material[];
-  shelf2: Material[];
-  shelf3: Material[];
+  status: string;
+  shelves: Shelf[];
   createdAt: Date;
+  lastReportId?: string;
 }
 
 export interface ChecklistItem {
@@ -26,10 +30,15 @@ export interface Report {
   id: string;
   standId: string;
   standNumber: string;
-  checkedItems: { [key: string]: boolean };
+  type: 'accept' | 'issue';
+  checklist: { [itemId: string]: boolean };
   signature: string;
+  issuedTo?: string;
+  issuedBy?: string;
   createdAt: Date;
-  type: 'accept' | 'handout';
-  handoutTo?: string;
-  handoutBy?: string;
+}
+
+export interface ResponsiblePerson {
+  id: string;
+  name: string;
 }

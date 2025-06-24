@@ -1,196 +1,285 @@
 import * as React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Trash2, ArrowLeft } from 'lucide-react';
-import { useChecklist } from '../hooks/useChecklist';
-import { useResponsiblePersons } from '../hooks/useResponsiblePersons';
-import { useNavigate } from 'react-router-dom';
-import toast from 'react-hot-toast';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useCollection } from '@/hooks/useFirestore';
+import { ChecklistItem, ResponsiblePerson } from '@/types';
+import { useToast, Toast } from '@/components/ui/toast';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { Plus, Trash2, Settings as SettingsIcon, Users, FileCheck } from 'lucide-react';
 
 export function Settings() {
-  const navigate = useNavigate();
-  const { checklistItems, addChecklistItem, deleteChecklistItem } = useChecklist();
-  const { responsiblePersons, addResponsiblePerson, deleteResponsiblePerson } = useResponsiblePersons();
-  const [isChecklistOpen, setIsChecklistOpen] = React.useState(false);
-  const [isPersonOpen, setIsPersonOpen] = React.useState(false);
-  const [newItem, setNewItem] = React.useState('');
-  const [newPerson, setNewPerson] = React.useState('');
+  const [showChecklistDialog, setShowChecklistDialog] = useState(false);
+  const [showPeopleDialog, setShowPeopleDialog] = useState(false);
+  const [newChecklistItem, setNewChecklistItem] = useState('');
+  const [newPersonName, setNewPersonName] = useState('');
+  const [deleteChecklistDialog, setDeleteChecklistDialog] = useState<{ open: boolean; itemId: string }>({
+    open: false,
+    itemId: ''
+  });
+  const [deletePersonDialog, setDeletePersonDialog] = useState<{ open: boolean; personId: string }>({
+    open: false,
+    personId: ''
+  });
 
-  const handleChecklistSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newItem.trim()) return;
+  const { data: checklistItems, add: addChecklistItem, remove: removeChecklistItem } = useCollection<ChecklistItem>('checklist');
+  const { data: responsiblePeople, add: addResponsiblePerson, remove: removeResponsiblePerson } = useCollection<ResponsiblePerson>('responsiblePeople');
+  const { toast, showToast, hideToast } = useToast();
+
+  const handleAddChecklistItem = async () => {
+    if (!newChecklistItem.trim()) {
+      showToast('Введите текст пункта', 'error');
+      return;
+    }
+
+    const nextOrder = Math.max(...checklistItems.map(item => item.order), 0) + 1;
     
-    try {
-      await addChecklistItem(newItem);
-      setNewItem('');
-      setIsChecklistOpen(false);
-      toast.success('Пункт чек-листа добавлен');
-    } catch (error) {
-      toast.error('Ошибка при добавлении пункта');
+    const result = await addChecklistItem({
+      text: newChecklistItem.trim(),
+      order: nextOrder,
+      createdAt: new Date()
+    });
+
+    if (result.success) {
+      showToast('Пункт чек-листа добавлен', 'success');
+      setNewChecklistItem('');
+      setShowChecklistDialog(false);
+    } else {
+      showToast('Ошибка при добавлении пункта', 'error');
     }
   };
 
-  const handlePersonSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newPerson.trim()) return;
-    
-    try {
-      await addResponsiblePerson(newPerson);
-      setNewPerson('');
-      setIsPersonOpen(false);
-      toast.success('Ответственное лицо добавлено');
-    } catch (error) {
-      toast.error('Ошибка при добавлении ответственного лица');
+  const handleDeleteChecklistItem = async () => {
+    const result = await removeChecklistItem(deleteChecklistDialog.itemId);
+    if (result.success) {
+      showToast('Пункт чек-листа удалён', 'success');
+    } else {
+      showToast('Ошибка при удалении пункта', 'error');
     }
   };
 
-  const handleDeleteChecklistItem = async (id: string) => {
-    if (confirm('Вы уверены, что хотите удалить этот пункт?')) {
-      try {
-        await deleteChecklistItem(id);
-        toast.success('Пункт чек-листа удален');
-      } catch (error) {
-        toast.error('Ошибка при удалении пункта');
-      }
+  const handleAddResponsiblePerson = async () => {
+    if (!newPersonName.trim()) {
+      showToast('Введите имя ответственного', 'error');
+      return;
+    }
+
+    const result = await addResponsiblePerson({
+      name: newPersonName.trim(),
+      createdAt: new Date()
+    });
+
+    if (result.success) {
+      showToast('Ответственный добавлен', 'success');
+      setNewPersonName('');
+      setShowPeopleDialog(false);
+    } else {
+      showToast('Ошибка при добавлении ответственного', 'error');
     }
   };
 
-  const handleDeletePerson = async (id: string) => {
-    if (confirm('Вы уверены, что хотите удалить это ответственное лицо?')) {
-      try {
-        await deleteResponsiblePerson(id);
-        toast.success('Ответственное лицо удалено');
-      } catch (error) {
-        toast.error('Ошибка при удалении ответственного лица');
-      }
+  const handleDeleteResponsiblePerson = async () => {
+    const result = await removeResponsiblePerson(deletePersonDialog.personId);
+    if (result.success) {
+      showToast('Ответственный удалён', 'success');
+    } else {
+      showToast('Ошибка при удалении ответственного', 'error');
     }
   };
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="flex items-center gap-4 mb-6">
-        <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <h1 className="text-2xl font-bold">Настройки</h1>
+    <div className="container mx-auto px-4 py-8">
+      <div className="flex items-center mb-6">
+        <SettingsIcon className="w-8 h-8 mr-3" />
+        <h1 className="text-3xl font-bold">Настройки</h1>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Checklist Settings */}
         <Card>
           <CardHeader>
             <div className="flex justify-between items-center">
-              <CardTitle>Настройки чек-листа</CardTitle>
-              <Dialog open={isChecklistOpen} onOpenChange={setIsChecklistOpen}>
+              <CardTitle className="flex items-center">
+                <FileCheck className="w-5 h-5 mr-2" />
+                Чек-лист
+              </CardTitle>
+              <Dialog open={showChecklistDialog} onOpenChange={setShowChecklistDialog}>
                 <DialogTrigger asChild>
-                  <Button>
-                    <Plus className="h-4 w-4 mr-2" />
+                  <Button size="sm">
+                    <Plus className="w-4 h-4 mr-2" />
                     Добавить пункт
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>Добавить новый пункт в чек-лист</DialogTitle>
+                    <DialogTitle>Добавить пункт чек-листа</DialogTitle>
+                    <DialogDescription>
+                      Введите текст нового пункта для чек-листа
+                    </DialogDescription>
                   </DialogHeader>
-                  <form onSubmit={handleChecklistSubmit} className="space-y-4">
-                    <div>
-                      <Label htmlFor="item">Текст пункта</Label>
+                  
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="checklistText">Текст пункта</Label>
                       <Input
-                        id="item"
-                        value={newItem}
-                        onChange={(e) => setNewItem(e.target.value)}
-                        placeholder="Введите текст пункта"
+                        id="checklistText"
+                        value={newChecklistItem}
+                        onChange={(e) => setNewChecklistItem(e.target.value)}
+                        placeholder="Введите текст пункта чек-листа"
                       />
                     </div>
-                    <Button type="submit" className="w-full">
-                      Добавить пункт
+                  </div>
+
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setShowChecklistDialog(false)}>
+                      Отмена
                     </Button>
-                  </form>
+                    <Button onClick={handleAddChecklistItem}>
+                      Добавить
+                    </Button>
+                  </DialogFooter>
                 </DialogContent>
               </Dialog>
             </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2 max-h-64 overflow-y-auto">
-              {checklistItems.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Пункты чек-листа не добавлены</p>
-              ) : (
-                checklistItems.map((item) => (
-                  <div key={item.id} className="flex items-center justify-between p-2 border rounded">
-                    <span className="text-sm flex-1">{item.text}</span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDeleteChecklistItem(item.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-                ))
-              )}
-            </div>
+            {checklistItems.length === 0 ? (
+              <p className="text-muted-foreground text-center py-4">
+                Нет пунктов в чек-листе
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {checklistItems
+                  .sort((a, b) => a.order - b.order)
+                  .map((item, index) => (
+                    <div key={item.id} className="flex items-center justify-between p-3 border rounded">
+                      <div className="flex items-center space-x-3">
+                        <span className="text-sm font-medium text-muted-foreground">
+                          {index + 1}.
+                        </span>
+                        <span className="text-sm">{item.text}</span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setDeleteChecklistDialog({ open: true, itemId: item.id })}
+                      >
+                        <Trash2 className="w-4 h-4 text-destructive" />
+                      </Button>
+                    </div>
+                  ))}
+              </div>
+            )}
           </CardContent>
         </Card>
 
-        {/* Responsible Persons Settings */}
+        {/* Responsible People Settings */}
         <Card>
           <CardHeader>
             <div className="flex justify-between items-center">
-              <CardTitle>Ответственные лица</CardTitle>
-              <Dialog open={isPersonOpen} onOpenChange={setIsPersonOpen}>
+              <CardTitle className="flex items-center">
+                <Users className="w-5 h-5 mr-2" />
+                Ответственные
+              </CardTitle>
+              <Dialog open={showPeopleDialog} onOpenChange={setShowPeopleDialog}>
                 <DialogTrigger asChild>
-                  <Button>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Добавить лицо
+                  <Button size="sm">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Добавить
                   </Button>
                 </DialogTrigger>
                 <DialogContent>
                   <DialogHeader>
-                    <DialogTitle>Добавить ответственное лицо</DialogTitle>
+                    <DialogTitle>Добавить ответственного</DialogTitle>
+                    <DialogDescription>
+                      Введите имя и фамилию ответственного лица
+                    </DialogDescription>
                   </DialogHeader>
-                  <form onSubmit={handlePersonSubmit} className="space-y-4">
-                    <div>
-                      <Label htmlFor="person">Имя и фамилия</Label>
+                  
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="personName">Имя и фамилия</Label>
                       <Input
-                        id="person"
-                        value={newPerson}
-                        onChange={(e) => setNewPerson(e.target.value)}
+                        id="personName"
+                        value={newPersonName}
+                        onChange={(e) => setNewPersonName(e.target.value)}
                         placeholder="Введите имя и фамилию"
                       />
                     </div>
-                    <Button type="submit" className="w-full">
-                      Добавить лицо
+                  </div>
+
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setShowPeopleDialog(false)}>
+                      Отмена
                     </Button>
-                  </form>
+                    <Button onClick={handleAddResponsiblePerson}>
+                      Добавить
+                    </Button>
+                  </DialogFooter>
                 </DialogContent>
               </Dialog>
             </div>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2 max-h-64 overflow-y-auto">
-              {responsiblePersons.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Ответственные лица не добавлены</p>
-              ) : (
-                responsiblePersons.map((person) => (
-                  <div key={person.id} className="flex items-center justify-between p-2 border rounded">
-                    <span className="text-sm flex-1">{person.name}</span>
+            {responsiblePeople.length === 0 ? (
+              <p className="text-muted-foreground text-center py-4">
+                Нет ответственных лиц
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {responsiblePeople.map((person) => (
+                  <div key={person.id} className="flex items-center justify-between p-3 border rounded">
+                    <span className="text-sm">{person.name}</span>
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleDeletePerson(person.id)}
+                      onClick={() => setDeletePersonDialog({ open: true, personId: person.id })}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      <Trash2 className="w-4 h-4 text-destructive" />
                     </Button>
                   </div>
-                ))
-              )}
-            </div>
+                ))}
+              </div>
+            )}
           </CardContent>
         </Card>
       </div>
+
+      {/* Confirm Dialogs */}
+      <ConfirmDialog
+        open={deleteChecklistDialog.open}
+        onOpenChange={(open) => setDeleteChecklistDialog({ open, itemId: '' })}
+        title="Удалить пункт чек-листа"
+        description="Вы уверены, что хотите удалить этот пункт из чек-листа?"
+        onConfirm={handleDeleteChecklistItem}
+      />
+
+      <ConfirmDialog
+        open={deletePersonDialog.open}
+        onOpenChange={(open) => setDeletePersonDialog({ open, personId: '' })}
+        title="Удалить ответственного"
+        description="Вы уверены, что хотите удалить этого ответственного?"
+        onConfirm={handleDeleteResponsiblePerson}
+      />
+
+      {toast && (
+        <Toast 
+          message={toast.message} 
+          type={toast.type} 
+          onClose={hideToast} 
+        />
+      )}
     </div>
   );
 }
