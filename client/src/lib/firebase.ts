@@ -7,7 +7,7 @@ const firebaseConfig = {
   projectId: "jwcarts-82c8f",
   storageBucket: "jwcarts-82c8f.firebasestorage.app",
   messagingSenderId: "602423977795",
-  appId: "1:602423977795:web:c61436084821d5c24af1f6",
+  appId: "1:602423977795:web:c61436084821d5c24af1f6"
 };
 
 const app = initializeApp(firebaseConfig);

@@ -1,4 +1,3 @@
-import * as React from 'react';
 import {
   Dialog,
   DialogContent,
@@ -15,14 +14,20 @@ interface ConfirmDialogProps {
   title: string;
   description: string;
   onConfirm: () => void;
+  confirmText?: string;
+  cancelText?: string;
+  variant?: 'default' | 'destructive';
 }
 
-export function ConfirmDialog({ 
-  open, 
-  onOpenChange, 
-  title, 
-  description, 
-  onConfirm 
+export function ConfirmDialog({
+  open,
+  onOpenChange,
+  title,
+  description,
+  onConfirm,
+  confirmText = 'Подтвердить',
+  cancelText = 'Отмена',
+  variant = 'default'
 }: ConfirmDialogProps) {
   const handleConfirm = () => {
     onConfirm();
@@ -38,10 +43,13 @@ export function ConfirmDialog({
         </DialogHeader>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Отмена
+            {cancelText}
           </Button>
-          <Button variant="destructive" onClick={handleConfirm}>
-            Удалить
+          <Button 
+            variant={variant} 
+            onClick={handleConfirm}
+          >
+            {confirmText}
           </Button>
         </DialogFooter>
       </DialogContent>

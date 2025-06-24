@@ -1,21 +1,22 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Toast } from '@/components/Toast';
 import { useCollection } from '@/hooks/useFirestore';
 import { Stand, Material } from '@/types';
 import { Plus, X } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import QRCode from 'qrcode';
 
-export function AddStand() {
+export function StandEdit() {
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { addItem } = useCollection<Stand>('stands');
+  const { data: stands, updateItem } = useCollection<Stand>('stands');
   const { data: materials } = useCollection<Material>('materials', 'name');
+  const [stand, setStand] = useState<Stand | null>(null);
   const [showToast, setShowToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [formData, setFormData] = useState({
     number: '',
@@ -29,32 +30,33 @@ export function AddStand() {
   const [selectedShelf, setSelectedShelf] = useState<string | null>(null);
   const [materialDialog, setMaterialDialog] = useState(false);
 
+  useEffect(() => {
+    const foundStand = stands.find(s => s.id === id);
+    if (foundStand) {
+      setStand(foundStand);
+      setFormData({
+        number: foundStand.number,
+        theme: foundStand.theme,
+        shelves: foundStand.shelves
+      });
+    }
+  }, [stands, id]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.number.trim() || !formData.theme.trim()) return;
+    if (!stand || !formData.number.trim() || !formData.theme.trim()) return;
 
-    try {
-      const qrCode = await QRCode.toDataURL(`STAND_${formData.number}`);
-      
-      const stand: Omit<Stand, 'id'> = {
-        number: formData.number,
-        theme: formData.theme,
-        status: 'В зале',
-        shelves: formData.shelves,
-        qrCode: `STAND_${formData.number}`,
-        createdAt: new Date()
-      };
+    const success = await updateItem(stand.id, {
+      number: formData.number,
+      theme: formData.theme,
+      shelves: formData.shelves
+    });
 
-      const success = await addItem(stand);
-      
-      if (success) {
-        setShowToast({ message: 'Стенд успешно добавлен', type: 'success' });
-        setTimeout(() => navigate('/stands'), 1500);
-      } else {
-        setShowToast({ message: 'Ошибка при добавлении стенда', type: 'error' });
-      }
-    } catch (error) {
-      setShowToast({ message: 'Ошибка при создании QR кода', type: 'error' });
+    if (success) {
+      setShowToast({ message: 'Стенд успешно обновлен', type: 'success' });
+      setTimeout(() => navigate(`/stands/${stand.id}`), 1500);
+    } else {
+      setShowToast({ message: 'Ошибка при обновлении стенда', type: 'error' });
     }
   };
 
@@ -83,11 +85,25 @@ export function AddStand() {
     }));
   };
 
+  if (!stand) {
+    return (
+      <Layout 
+        title="Редактировать стенд" 
+        showBackButton 
+        onBack={() => navigate('/stands')}
+      >
+        <div className="text-center py-8">
+          <p className="text-gray-500 dark:text-gray-400">Стенд не найден</p>
+        </div>
+      </Layout>
+    );
+  }
+
   return (
     <Layout 
-      title="Добавить стенд" 
+      title="Редактировать стенд" 
       showBackButton 
-      onBack={() => navigate('/stands')}
+      onBack={() => navigate(`/stands/${stand.id}`)}
     >
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="space-y-4">
@@ -168,7 +184,7 @@ export function AddStand() {
         </div>
 
         <Button type="submit" className="w-full">
-          Создать стенд
+          Сохранить изменения
         </Button>
       </form>
 

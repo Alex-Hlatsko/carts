@@ -1,183 +1,176 @@
-import * as React from 'react';
 import { useState } from 'react';
+import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from '@/components/ui/dialog';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { ConfirmDialog } from '@/components/ConfirmDialog';
+import { Toast } from '@/components/Toast';
 import { useCollection } from '@/hooks/useFirestore';
 import { Material } from '@/types';
-import { useToast, Toast } from '@/components/ui/toast';
-import { ConfirmDialog } from '@/components/ConfirmDialog';
-import { Plus, Trash2, Package } from 'lucide-react';
+import { Pencil, Trash2, Plus } from 'lucide-react';
 
 export function Materials() {
-  const [showAddDialog, setShowAddDialog] = useState(false);
-  const [newMaterial, setNewMaterial] = useState({ name: '', imageUrl: '' });
-  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; materialId: string }>({
-    open: false,
-    materialId: ''
-  });
+  const { data: materials, addItem, updateItem, deleteItem } = useCollection<Material>('materials', 'name');
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [showToast, setShowToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [formData, setFormData] = useState({ name: '', imageUrl: '' });
 
-  const { data: materials, add: addMaterial, remove: removeMaterial } = useCollection<Material>('materials');
-  const { toast, showToast, hideToast } = useToast();
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.name.trim() || !formData.imageUrl.trim()) return;
 
-  const handleAddMaterial = async () => {
-    if (!newMaterial.name || !newMaterial.imageUrl) {
-      showToast('Заполните все поля', 'error');
-      return;
-    }
+    const success = editingMaterial
+      ? await updateItem(editingMaterial.id, formData)
+      : await addItem({ ...formData, createdAt: new Date() });
 
-    const result = await addMaterial(newMaterial);
-    if (result.success) {
-      showToast('Материал успешно добавлен', 'success');
-      setNewMaterial({ name: '', imageUrl: '' });
-      setShowAddDialog(false);
+    if (success) {
+      setShowToast({ 
+        message: editingMaterial ? 'Материал обновлен' : 'Материал добавлен', 
+        type: 'success' 
+      });
+      setFormData({ name: '', imageUrl: '' });
+      setIsAddDialogOpen(false);
+      setEditingMaterial(null);
     } else {
-      showToast('Ошибка при добавлении материала', 'error');
+      setShowToast({ message: 'Ошибка при сохранении', type: 'error' });
     }
   };
 
-  const handleDeleteMaterial = async () => {
-    const result = await removeMaterial(deleteDialog.materialId);
-    if (result.success) {
-      showToast('Материал успешно удалён', 'success');
+  const handleEdit = (material: Material) => {
+    setEditingMaterial(material);
+    setFormData({ name: material.name, imageUrl: material.imageUrl });
+    setIsAddDialogOpen(true);
+  };
+
+  const handleDelete = async (id: string) => {
+    const success = await deleteItem(id);
+    if (success) {
+      setShowToast({ message: 'Материал удален', type: 'success' });
     } else {
-      showToast('Ошибка при удалении материала', 'error');
+      setShowToast({ message: 'Ошибка при удалении', type: 'error' });
     }
+  };
+
+  const resetForm = () => {
+    setFormData({ name: '', imageUrl: '' });
+    setEditingMaterial(null);
   };
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Материалы</h1>
-        <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+    <Layout title="Материалы">
+      <div className="space-y-4">
+        <Dialog open={isAddDialogOpen} onOpenChange={(open) => {
+          setIsAddDialogOpen(open);
+          if (!open) resetForm();
+        }}>
           <DialogTrigger asChild>
-            <Button>
-              <Plus className="w-4 h-4 mr-2" />
+            <Button className="w-full">
+              <Plus className="h-4 w-4 mr-2" />
               Добавить материал
             </Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Добавить новый материал</DialogTitle>
-              <DialogDescription>
-                Заполните информацию о материале
-              </DialogDescription>
+              <DialogTitle>
+                {editingMaterial ? 'Редактировать материал' : 'Добавить материал'}
+              </DialogTitle>
             </DialogHeader>
-            
-            <div className="space-y-4">
-              <div className="space-y-2">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <div>
                 <Label htmlFor="name">Название</Label>
                 <Input
                   id="name"
-                  value={newMaterial.name}
-                  onChange={(e) => setNewMaterial(prev => ({ ...prev, name: e.target.value }))}
-                  placeholder="Введите название материала"
+                  value={formData.name}
+                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                  required
                 />
               </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="imageUrl">Ссылка на картинку</Label>
+              <div>
+                <Label htmlFor="imageUrl">Ссылка на изображение</Label>
                 <Input
                   id="imageUrl"
-                  value={newMaterial.imageUrl}
-                  onChange={(e) => setNewMaterial(prev => ({ ...prev, imageUrl: e.target.value }))}
-                  placeholder="https://example.com/image.jpg"
+                  type="url"
+                  value={formData.imageUrl}
+                  onChange={(e) => setFormData(prev => ({ ...prev, imageUrl: e.target.value }))}
+                  required
                 />
               </div>
-              
-              {newMaterial.imageUrl && (
-                <div className="space-y-2">
-                  <Label>Предпросмотр</Label>
-                  <div className="w-32 h-32 border rounded-lg overflow-hidden bg-gray-100">
-                    <img 
-                      src={newMaterial.imageUrl} 
-                      alt="Предпросмотр" 
-                      className="w-full h-full object-cover"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = '/placeholder-image.png';
-                      }}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setShowAddDialog(false)}>
-                Отмена
-              </Button>
-              <Button onClick={handleAddMaterial}>
-                Добавить
-              </Button>
-            </DialogFooter>
+              <div className="flex gap-2">
+                <Button type="submit" className="flex-1">
+                  {editingMaterial ? 'Обновить' : 'Добавить'}
+                </Button>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => setIsAddDialogOpen(false)}
+                >
+                  Отмена
+                </Button>
+              </div>
+            </form>
           </DialogContent>
         </Dialog>
-      </div>
 
-      {materials.length === 0 ? (
-        <div className="text-center py-12">
-          <Package className="w-24 h-24 mx-auto text-muted-foreground mb-4" />
-          <h3 className="text-lg font-semibold mb-2">Нет материалов</h3>
-          <p className="text-muted-foreground mb-4">
-            Добавьте первый материал для управления стендами
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 gap-4">
           {materials.map((material) => (
             <Card key={material.id} className="overflow-hidden">
-              <div className="aspect-square bg-gray-100">
-                <img 
-                  src={material.imageUrl} 
+              <div className="aspect-square bg-gray-100 dark:bg-gray-800">
+                <img
+                  src={material.imageUrl}
                   alt={material.name}
                   className="w-full h-full object-cover"
                   onError={(e) => {
-                    (e.target as HTMLImageElement).src = '/placeholder-image.png';
+                    e.currentTarget.src = '/placeholder-image.png';
                   }}
                 />
               </div>
-              <CardContent className="p-4">
-                <h3 className="font-semibold mb-2 truncate">{material.name}</h3>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => setDeleteDialog({ open: true, materialId: material.id })}
-                  className="w-full"
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Удалить
-                </Button>
+              <CardContent className="p-3">
+                <h3 className="font-medium text-sm mb-2 line-clamp-2">{material.name}</h3>
+                <div className="flex gap-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleEdit(material)}
+                    className="flex-1"
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setDeleteConfirm(material.id)}
+                    className="flex-1"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ))}
         </div>
-      )}
+      </div>
 
       <ConfirmDialog
-        open={deleteDialog.open}
-        onOpenChange={(open) => setDeleteDialog({ open, materialId: '' })}
+        open={!!deleteConfirm}
+        onOpenChange={() => setDeleteConfirm(null)}
         title="Удалить материал"
-        description="Вы уверены, что хотите удалить этот материал? Это действие нельзя отменить."
-        onConfirm={handleDeleteMaterial}
+        description="Вы уверены, что хотите удалить этот материал?"
+        onConfirm={() => deleteConfirm && handleDelete(deleteConfirm)}
+        variant="destructive"
+        confirmText="Удалить"
       />
 
-      {toast && (
-        <Toast 
-          message={toast.message} 
-          type={toast.type} 
-          onClose={hideToast} 
+      {showToast && (
+        <Toast
+          message={showToast.message}
+          type={showToast.type}
+          onClose={() => setShowToast(null)}
         />
       )}
-    </div>
+    </Layout>
   );
 }

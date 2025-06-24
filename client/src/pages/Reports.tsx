@@ -1,179 +1,128 @@
-import * as React from 'react';
 import { useState } from 'react';
+import { Layout } from '@/components/Layout';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
-import { useCollection } from '@/hooks/useFirestore';
-import { Report, ChecklistItem } from '@/types';
-import { useToast, Toast } from '@/components/ui/toast';
 import { ConfirmDialog } from '@/components/ConfirmDialog';
-import { Trash2, Eye, FileText, Check, X } from 'lucide-react';
+import { Toast } from '@/components/Toast';
+import { useCollection } from '@/hooks/useFirestore';
+import { Report } from '@/types';
+import { Trash2, Eye, Wrench } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 export function Reports() {
-  const [selectedReport, setSelectedReport] = useState<Report | null>(null);
-  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
-  const [deleteDialog, setDeleteDialog] = useState<{ open: boolean; reportId: string }>({
-    open: false,
-    reportId: ''
-  });
+  const { data: reports, deleteItem } = useCollection<Report>('reports', 'createdAt');
+  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
+  const [showToast, setShowToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const navigate = useNavigate();
 
-  const { data: reports, remove: removeReport } = useCollection<Report>('reports');
-  const { data: checklistItems } = useCollection<ChecklistItem>('checklist');
-  const { toast, showToast, hideToast } = useToast();
-
-  const handleViewDetails = (report: Report) => {
-    setSelectedReport(report);
-    setShowDetailsDialog(true);
-  };
-
-  const handleDeleteReport = async () => {
-    const result = await removeReport(deleteDialog.reportId);
-    if (result.success) {
-      showToast('Отчёт успешно удалён', 'success');
+  const handleDelete = async (id: string) => {
+    const success = await deleteItem(id);
+    if (success) {
+      setShowToast({ message: 'Отчёт удален', type: 'success' });
     } else {
-      showToast('Ошибка при удалении отчёта', 'error');
+      setShowToast({ message: 'Ошибка при удалении', type: 'error' });
     }
   };
 
-  const getTypeLabel = (type: string) => {
-    return type === 'accept' ? 'Приём' : 'Выдача';
+  const needsService = (report: Report) => {
+    return !report.isServiced && (
+      report.answers.some(answer => !answer.answer) ||
+      report.answers.some(answer => answer.notes && answer.notes.trim().length > 0)
+    );
   };
 
-  const getTypeColor = (type: string) => {
-    return type === 'accept' ? 'default' : 'secondary';
-  };
+  const sortedReports = [...reports].reverse();
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-3xl font-bold">Отчёты</h1>
-      </div>
-
-      {reports.length === 0 ? (
-        <div className="text-center py-12">
-          <FileText className="w-24 h-24 mx-auto text-muted-foreground mb-4" />
-          <h3 className="text-lg font-semibold mb-2">Нет отчётов</h3>
-          <p className="text-muted-foreground mb-4">
-            Отчёты будут появляться после сканирования стендов
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {reports.map((report) => (
-            <Card key={report.id}>
-              <CardHeader>
-                <div className="flex justify-between items-start">
-                  <CardTitle className="text-lg">Стенд {report.standNumber}</CardTitle>
-                  <Badge variant={getTypeColor(report.type)}>
-                    {getTypeLabel(report.type)}
-                  </Badge>
+    <Layout title="Отчёты">
+      <div className="space-y-4">
+        {sortedReports.map((report) => (
+          <Card key={report.id} className="hover:shadow-md transition-shadow">
+            <CardHeader className="pb-3">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg">
+                  Стенд #{report.standNumber}
+                </CardTitle>
+                <div className="flex gap-1">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => navigate(`/reports/${report.id}`)}
+                  >
+                    <Eye className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setDeleteConfirm(report.id)}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
                 </div>
-                <div className="text-sm text-muted-foreground">
-                  <p>{new Date(report.createdAt).toLocaleString()}</p>
-                  <p>Подпись: {report.signature}</p>
-                  {report.issuedTo && <p>Выдан: {report.issuedTo}</p>}
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <Button
-                  variant="outline"
-                  onClick={() => handleViewDetails(report)}
-                  className="w-full justify-start"
-                >
-                  <Eye className="w-4 h-4 mr-2" />
-                  Подробнее
-                </Button>
-                <Button
-                  variant="destructive"
-                  onClick={() => setDeleteDialog({ open: true, reportId: report.id })}
-                  className="w-full justify-start"
-                >
-                  <Trash2 className="w-4 h-4 mr-2" />
-                  Удалить
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      <Dialog open={showDetailsDialog} onOpenChange={setShowDetailsDialog}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              Отчёт по стенду {selectedReport?.standNumber}
-            </DialogTitle>
-            <DialogDescription>
-              {selectedReport && getTypeLabel(selectedReport.type)} - {selectedReport && new Date(selectedReport.createdAt).toLocaleString()}
-            </DialogDescription>
-          </DialogHeader>
-          
-          {selectedReport && (
-            <div className="space-y-6">
-              <div>
-                <h3 className="font-semibold mb-2">Основная информация</h3>
-                <div className="space-y-1 text-sm">
-                  <p><strong>Тип операции:</strong> {getTypeLabel(selectedReport.type)}</p>
-                  <p><strong>Дата и время:</strong> {new Date(selectedReport.createdAt).toLocaleString()}</p>
-                  <p><strong>Подпись:</strong> {selectedReport.signature}</p>
-                  {selectedReport.issuedBy && (
-                    <p><strong>Кто выдал:</strong> {selectedReport.issuedBy}</p>
-                  )}
-                  {selectedReport.issuedTo && (
-                    <p><strong>Кому выдан:</strong> {selectedReport.issuedTo}</p>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="space-y-2">
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  <span className="font-medium">Дата:</span>{' '}
+                  {new Date(report.date).toLocaleDateString()}
+                </p>
+                <p className="text-sm text-gray-600 dark:text-gray-400">
+                  <span className="font-medium">Ответственный:</span> {report.responsibleName}
+                </p>
+                <div className="flex items-center justify-between">
+                  <p className="text-sm">
+                    <span className="font-medium">Статус:</span>{' '}
+                    <span className={report.isServiced ? 'text-green-600' : 'text-blue-600'}>
+                      {report.isServiced ? 'Обслужено' : 'Принято'}
+                    </span>
+                    {report.isServiced && report.servicedAt && (
+                      <span className="text-xs text-gray-500 ml-2">
+                        {new Date(report.servicedAt).toLocaleDateString()}
+                      </span>
+                    )}
+                  </p>
+                  {needsService(report) && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => navigate(`/reports/${report.id}?service=true`)}
+                      className="text-orange-600 border-orange-300 hover:bg-orange-50"
+                    >
+                      <Wrench className="h-3 w-3 mr-1" />
+                      Обслужить
+                    </Button>
                   )}
                 </div>
               </div>
+            </CardContent>
+          </Card>
+        ))}
 
-              {selectedReport.type === 'accept' && Object.keys(selectedReport.checklist).length > 0 && (
-                <div>
-                  <h3 className="font-semibold mb-2">Чек-лист</h3>
-                  <div className="space-y-2">
-                    {checklistItems
-                      .sort((a, b) => a.order - b.order)
-                      .map((item) => {
-                        const isChecked = selectedReport.checklist[item.id];
-                        return (
-                          <div key={item.id} className="flex items-center space-x-2">
-                            {isChecked ? (
-                              <Check className="w-5 h-5 text-green-500" />
-                            ) : (
-                              <X className="w-5 h-5 text-red-500" />
-                            )}
-                            <span className="text-sm">{item.text}</span>
-                          </div>
-                        );
-                      })}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+        {reports.length === 0 && (
+          <div className="text-center py-8">
+            <p className="text-gray-500 dark:text-gray-400">Нет отчётов</p>
+          </div>
+        )}
+      </div>
 
       <ConfirmDialog
-        open={deleteDialog.open}
-        onOpenChange={(open) => setDeleteDialog({ open, reportId: '' })}
+        open={!!deleteConfirm}
+        onOpenChange={() => setDeleteConfirm(null)}
         title="Удалить отчёт"
-        description="Вы уверены, что хотите удалить этот отчёт? Это действие нельзя отменить."
-        onConfirm={handleDeleteReport}
+        description="Вы уверены, что хотите удалить этот отчёт?"
+        onConfirm={() => deleteConfirm && handleDelete(deleteConfirm)}
+        variant="destructive"
+        confirmText="Удалить"
       />
 
-      {toast && (
-        <Toast 
-          message={toast.message} 
-          type={toast.type} 
-          onClose={hideToast} 
+      {showToast && (
+        <Toast
+          message={showToast.message}
+          type={showToast.type}
+          onClose={() => setShowToast(null)}
         />
       )}
-    </div>
+    </Layout>
   );
 }

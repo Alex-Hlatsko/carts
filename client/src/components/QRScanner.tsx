@@ -1,144 +1,139 @@
-import * as React from 'react';
-import { useState, useRef, useEffect } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { BrowserMultiFormatReader } from '@zxing/library';
 import { Button } from '@/components/ui/button';
-import { SwitchCamera } from 'lucide-react';
-import QrScanner from 'qr-scanner';
+import { Camera, SwitchCamera } from 'lucide-react';
 
 interface QRScannerProps {
   onScan: (result: string) => void;
-  onClose: () => void;
+  onError?: (error: string) => void;
 }
 
-export function QRScanner({ onScan, onClose }: QRScannerProps) {
+export function QRScanner({ onScan, onError }: QRScannerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const qrScannerRef = useRef<QrScanner | null>(null);
-  const [facingMode, setFacingMode] = useState<'user' | 'environment'>('environment');
-  const [hasFlash, setHasFlash] = useState(false);
-  const [flashOn, setFlashOn] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
+  const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
+  const [currentDeviceId, setCurrentDeviceId] = useState<string>('');
+  const [reader, setReader] = useState<BrowserMultiFormatReader | null>(null);
 
   useEffect(() => {
-    const startScanner = async () => {
-      if (!videoRef.current) return;
+    const codeReader = new BrowserMultiFormatReader();
+    setReader(codeReader);
 
+    const getDevices = async () => {
       try {
-        // Stop existing scanner if any
-        if (qrScannerRef.current) {
-          qrScannerRef.current.destroy();
-        }
-
-        const qrScanner = new QrScanner(
-          videoRef.current,
-          (result) => {
-            if (result?.data) {
-              onScan(result.data);
-            }
-          },
-          {
-            preferredCamera: facingMode,
-            highlightScanRegion: true,
-            highlightCodeOutline: true,
-          }
+        const videoDevices = await codeReader.listVideoInputDevices();
+        setDevices(videoDevices);
+        
+        // Find back camera (environment facing)
+        const backCamera = videoDevices.find(device => 
+          device.label.toLowerCase().includes('back') || 
+          device.label.toLowerCase().includes('environment')
         );
-
-        qrScannerRef.current = qrScanner;
         
-        await qrScanner.start();
-        
-        // Check if flash is available
-        const hasFlashSupport = await qrScanner.hasFlash();
-        setHasFlash(hasFlashSupport);
-
+        if (backCamera) {
+          setCurrentDeviceId(backCamera.deviceId);
+        } else if (videoDevices.length > 0) {
+          setCurrentDeviceId(videoDevices[0].deviceId);
+        }
       } catch (err) {
-        console.error('Error starting QR scanner:', err);
+        onError?.('Не удалось получить доступ к камере');
       }
     };
 
-    startScanner();
+    getDevices();
 
     return () => {
-      if (qrScannerRef.current) {
-        qrScannerRef.current.destroy();
-        qrScannerRef.current = null;
-      }
+      codeReader.reset();
     };
-  }, [facingMode, onScan]);
+  }, [onError]);
 
-  const switchCamera = async () => {
-    if (qrScannerRef.current) {
-      const cameras = await QrScanner.listCameras(true);
-      if (cameras.length > 1) {
-        const currentCamera = await qrScannerRef.current.getCamera();
-        const newCamera = cameras.find(camera => camera.id !== currentCamera?.id);
-        if (newCamera) {
-          await qrScannerRef.current.setCamera(newCamera.id);
-          setFacingMode(prev => prev === 'user' ? 'environment' : 'user');
-        }
+  const startScanning = async () => {
+    if (!reader || !videoRef.current) return;
+
+    try {
+      setIsScanning(true);
+      
+      const result = await reader.decodeOnceFromVideoDevice(
+        currentDeviceId || undefined,
+        videoRef.current
+      );
+      
+      if (result) {
+        onScan(result.getText());
+        setIsScanning(false);
       }
+    } catch (err) {
+      setIsScanning(false);
+      onError?.('Ошибка сканирования QR кода');
     }
   };
 
-  const toggleFlash = async () => {
-    if (qrScannerRef.current && hasFlash) {
-      try {
-        if (flashOn) {
-          await qrScannerRef.current.turnFlashOff();
-        } else {
-          await qrScannerRef.current.turnFlashOn();
-        }
-        setFlashOn(!flashOn);
-      } catch (err) {
-        console.error('Error toggling flash:', err);
-      }
+  const stopScanning = () => {
+    if (reader) {
+      reader.reset();
     }
+    setIsScanning(false);
   };
 
-  const handleClose = () => {
-    if (qrScannerRef.current) {
-      qrScannerRef.current.destroy();
-      qrScannerRef.current = null;
+  const switchCamera = () => {
+    if (devices.length > 1) {
+      const currentIndex = devices.findIndex(d => d.deviceId === currentDeviceId);
+      const nextIndex = (currentIndex + 1) % devices.length;
+      setCurrentDeviceId(devices[nextIndex].deviceId);
+      
+      if (isScanning) {
+        stopScanning();
+        setTimeout(startScanning, 100);
+      }
     }
-    onClose();
   };
 
   return (
-    <div className="fixed inset-0 bg-black z-50 flex flex-col">
-      <div className="flex justify-between items-center p-4 bg-black text-white">
-        <Button variant="ghost" onClick={handleClose} className="text-white">
-          Назад
-        </Button>
-        <h2 className="text-lg font-semibold">Сканер QR кода</h2>
-        <div className="flex space-x-2">
-          {hasFlash && (
-            <Button 
-              variant="ghost" 
-              onClick={toggleFlash} 
-              className={`text-white ${flashOn ? 'bg-yellow-600' : ''}`}
-            >
-              💡
-            </Button>
-          )}
-          <Button variant="ghost" onClick={switchCamera} className="text-white">
-            <SwitchCamera className="w-5 h-5" />
-          </Button>
-        </div>
-      </div>
-      
-      <div className="flex-1 relative">
+    <div className="space-y-4">
+      <div className="relative bg-black rounded-lg overflow-hidden aspect-square">
         <video
           ref={videoRef}
           className="w-full h-full object-cover"
+          playsInline
+          muted
         />
         
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="w-64 h-64 border-2 border-white rounded-lg bg-transparent">
-            <div className="w-full h-full border-2 border-dashed border-white/50 rounded-lg"></div>
+        {!isScanning && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+            <Button onClick={startScanning} size="lg">
+              <Camera className="h-5 w-5 mr-2" />
+              Начать сканирование
+            </Button>
           </div>
-        </div>
+        )}
         
-        <div className="absolute bottom-20 left-0 right-0 text-center text-white">
-          <p className="text-lg font-semibold">Наведите камеру на QR код</p>
-          <p className="text-sm opacity-75">Сканирование происходит автоматически</p>
-        </div>
+        {isScanning && (
+          <div className="absolute inset-4 border-2 border-white rounded-lg">
+            <div className="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-green-500 rounded-tl-lg"></div>
+            <div className="absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-green-500 rounded-tr-lg"></div>
+            <div className="absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-green-500 rounded-bl-lg"></div>
+            <div className="absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-green-500 rounded-br-lg"></div>
+          </div>
+        )}
+      </div>
+      
+      <div className="flex gap-2">
+        {isScanning ? (
+          <Button onClick={stopScanning} variant="outline" className="flex-1">
+            Остановить
+          </Button>
+        ) : (
+          <Button onClick={startScanning} className="flex-1">
+            <Camera className="h-4 w-4 mr-2" />
+            Сканировать
+          </Button>
+        )}
+        
+        {devices.length > 1 && (
+          <Button onClick={switchCamera} variant="outline" size="icon">
+            <SwitchCamera className="h-4 w-4" />
+          </Button>
+        )}
       </div>
     </div>
   );
