@@ -1,310 +1,354 @@
-import { useState } from 'react';
-import { Layout } from '@/components/Layout';
+import React, { useState } from 'react';
+import { useCollection } from '@/hooks/useFirestore';
+import { ChecklistItem, ResponsiblePerson } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { ConfirmDialog } from '@/components/ConfirmDialog';
-import { Toast } from '@/components/Toast';
-import { useCollection } from '@/hooks/useFirestore';
-import { Responsible, ChecklistItem } from '@/types';
-import { Pencil, Trash2, Plus, Settings as SettingsIcon, Users } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Plus, Edit, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
+import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
+import { useToast } from '@/components/ui/toast';
 
 export function Settings() {
-  const { data: responsibles, addItem: addResponsible, updateItem: updateResponsible, deleteItem: deleteResponsible } = useCollection<Responsible>('responsibles', 'name');
-  const { data: checklistItems, addItem: addChecklistItem, updateItem: updateChecklistItem, deleteItem: deleteChecklistItem } = useCollection<ChecklistItem>('checklistItems', 'order');
+  const { data: checklistItems, addItem: addChecklistItem, updateItem: updateChecklistItem, deleteItem: deleteChecklistItem } = useCollection<ChecklistItem>('checklist-items');
+  const { data: responsiblePersons, addItem: addPerson, updateItem: updatePerson, deleteItem: deletePerson } = useCollection<ResponsiblePerson>('responsible-persons');
   
-  const [activeTab, setActiveTab] = useState<'checklist' | 'responsibles'>('checklist');
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [editingItem, setEditingItem] = useState<any>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null);
-  const [showToast, setShowToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  const [formData, setFormData] = useState({ question: '', name: '' });
+  const [showChecklistDialog, setShowChecklistDialog] = useState(false);
+  const [showPersonDialog, setShowPersonDialog] = useState(false);
+  const [editingChecklistItem, setEditingChecklistItem] = useState<ChecklistItem | null>(null);
+  const [editingPerson, setEditingPerson] = useState<ResponsiblePerson | null>(null);
+  const [deleteChecklistId, setDeleteChecklistId] = useState<string | null>(null);
+  const [deletePersonId, setDeletePersonId] = useState<string | null>(null);
+  
+  const [checklistQuestion, setChecklistQuestion] = useState('');
+  const [personName, setPersonName] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const { showToast, ToastComponent } = useToast();
+
+  // Сортированные пункты чек-листа
+  const sortedChecklistItems = [...checklistItems].sort((a, b) => a.order - b.order);
 
   const handleSubmitChecklist = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.question.trim()) return;
+    if (!checklistQuestion.trim()) return;
 
-    const success = editingItem
-      ? await updateChecklistItem(editingItem.id, { question: formData.question })
-      : await addChecklistItem({ 
-          question: formData.question, 
-          order: checklistItems.length + 1,
-          createdAt: new Date() 
-        });
+    setIsSubmitting(true);
 
-    if (success) {
-      setShowToast({ 
-        message: editingItem ? 'Пункт обновлен' : 'Пункт добавлен', 
-        type: 'success' 
+    let result;
+    if (editingChecklistItem) {
+      result = await updateChecklistItem(editingChecklistItem.id, {
+        question: checklistQuestion.trim()
       });
-      resetForm();
     } else {
-      setShowToast({ message: 'Ошибка при сохранении', type: 'error' });
+      const maxOrder = checklistItems.length > 0 ? Math.max(...checklistItems.map(item => item.order)) : 0;
+      result = await addChecklistItem({
+        question: checklistQuestion.trim(),
+        order: maxOrder + 1
+      });
+    }
+
+    setIsSubmitting(false);
+
+    if (result.success) {
+      showToast(
+        editingChecklistItem ? 'Пункт чек-листа обновлен' : 'Пункт чек-листа добавлен',
+        'success'
+      );
+      handleCloseChecklistDialog();
+    } else {
+      showToast('Ошибка при сохранении пункта', 'error');
     }
   };
 
-  const handleSubmitResponsible = async (e: React.FormEvent) => {
+  const handleSubmitPerson = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name.trim()) return;
+    if (!personName.trim()) return;
 
-    const success = editingItem
-      ? await updateResponsible(editingItem.id, { name: formData.name })
-      : await addResponsible({ name: formData.name, createdAt: new Date() });
+    setIsSubmitting(true);
 
-    if (success) {
-      setShowToast({ 
-        message: editingItem ? 'Ответственный обновлен' : 'Ответственный добавлен', 
-        type: 'success' 
-      });
-      resetForm();
-    } else {
-      setShowToast({ message: 'Ошибка при сохранении', type: 'error' });
-    }
-  };
-
-  const handleEdit = (item: any, type: 'checklist' | 'responsible') => {
-    setEditingItem(item);
-    if (type === 'checklist') {
-      setFormData({ question: item.question, name: '' });
-    } else {
-      setFormData({ question: '', name: item.name });
-    }
-    setIsAddDialogOpen(true);
-  };
-
-  const handleDelete = async (id: string, type: 'checklist' | 'responsible') => {
-    const success = type === 'checklist' 
-      ? await deleteChecklistItem(id)
-      : await deleteResponsible(id);
-    
-    if (success) {
-      setShowToast({ 
-        message: type === 'checklist' ? 'Пункт удален' : 'Ответственный удален', 
-        type: 'success' 
+    let result;
+    if (editingPerson) {
+      result = await updatePerson(editingPerson.id, {
+        name: personName.trim()
       });
     } else {
-      setShowToast({ message: 'Ошибка при удалении', type: 'error' });
+      result = await addPerson({
+        name: personName.trim()
+      });
+    }
+
+    setIsSubmitting(false);
+
+    if (result.success) {
+      showToast(
+        editingPerson ? 'Ответственный обновлен' : 'Ответственный добавлен',
+        'success'
+      );
+      handleClosePersonDialog();
+    } else {
+      showToast('Ошибка при сохранении ответственного', 'error');
     }
   };
 
-  const resetForm = () => {
-    setFormData({ question: '', name: '' });
-    setEditingItem(null);
-    setIsAddDialogOpen(false);
+  const handleEditChecklistItem = (item: ChecklistItem) => {
+    setEditingChecklistItem(item);
+    setChecklistQuestion(item.question);
+    setShowChecklistDialog(true);
+  };
+
+  const handleEditPerson = (person: ResponsiblePerson) => {
+    setEditingPerson(person);
+    setPersonName(person.name);
+    setShowPersonDialog(true);
+  };
+
+  const handleDeleteChecklistItem = async (id: string) => {
+    const result = await deleteChecklistItem(id);
+    if (result.success) {
+      showToast('Пункт чек-листа удален', 'success');
+    } else {
+      showToast('Ошибка при удалении пункта', 'error');
+    }
+    setDeleteChecklistId(null);
+  };
+
+  const handleDeletePerson = async (id: string) => {
+    const result = await deletePerson(id);
+    if (result.success) {
+      showToast('Ответственный удален', 'success');
+    } else {
+      showToast('Ошибка при удалении ответственного', 'error');
+    }
+    setDeletePersonId(null);
+  };
+
+  const moveChecklistItem = async (id: string, direction: 'up' | 'down') => {
+    const item = sortedChecklistItems.find(item => item.id === id);
+    if (!item) return;
+
+    const currentIndex = sortedChecklistItems.findIndex(item => item.id === id);
+    const newIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+
+    if (newIndex < 0 || newIndex >= sortedChecklistItems.length) return;
+
+    const otherItem = sortedChecklistItems[newIndex];
+
+    await updateChecklistItem(item.id, { order: otherItem.order });
+    await updateChecklistItem(otherItem.id, { order: item.order });
+  };
+
+  const handleCloseChecklistDialog = () => {
+    setShowChecklistDialog(false);
+    setEditingChecklistItem(null);
+    setChecklistQuestion('');
+  };
+
+  const handleClosePersonDialog = () => {
+    setShowPersonDialog(false);
+    setEditingPerson(null);
+    setPersonName('');
   };
 
   return (
-    <Layout title="Настройки">
-      <div className="space-y-6">
-        <div className="flex space-x-1 bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
-          <Button
-            variant={activeTab === 'checklist' ? 'default' : 'ghost'}
-            onClick={() => setActiveTab('checklist')}
-            className="flex-1"
-          >
-            <SettingsIcon className="h-4 w-4 mr-2" />
-            Чек-лист
-          </Button>
-          <Button
-            variant={activeTab === 'responsibles' ? 'default' : 'ghost'}
-            onClick={() => setActiveTab('responsibles')}
-            className="flex-1"
-          >
-            <Users className="h-4 w-4 mr-2" />
-            Ответственные
-          </Button>
-        </div>
+    <div className="p-4 space-y-6">
+      {ToastComponent}
+      
+      <h1 className="text-2xl font-bold">Настройки</h1>
 
-        {activeTab === 'checklist' && (
-          <div className="space-y-4">
-            <Dialog open={isAddDialogOpen} onOpenChange={(open) => {
-              setIsAddDialogOpen(open);
-              if (!open) resetForm();
-            }}>
-              <DialogTrigger asChild>
-                <Button className="w-full">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Добавить пункт чек-листа
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>
-                    {editingItem ? 'Редактировать пункт' : 'Добавить пункт чек-листа'}
-                  </DialogTitle>
-                </DialogHeader>
-                <form onSubmit={handleSubmitChecklist} className="space-y-4">
-                  <div>
-                    <Label htmlFor="question">Вопрос</Label>
-                    <Input
-                      id="question"
-                      value={formData.question}
-                      onChange={(e) => setFormData(prev => ({ ...prev, question: e.target.value }))}
-                      placeholder="Введите вопрос для проверки..."
-                      required
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <Button type="submit" className="flex-1">
-                      {editingItem ? 'Обновить' : 'Добавить'}
-                    </Button>
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      onClick={resetForm}
-                    >
-                      Отмена
-                    </Button>
-                  </div>
-                </form>
-              </DialogContent>
-            </Dialog>
-
-            <div className="space-y-3">
-              {checklistItems.map((item, index) => (
-                <Card key={item.id}>
-                  <CardContent className="flex items-center justify-between p-4">
-                    <div className="flex-1">
-                      <span className="text-sm font-medium">#{index + 1}</span>
-                      <p className="text-sm mt-1">{item.question}</p>
-                    </div>
-                    <div className="flex gap-1 ml-4">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleEdit(item, 'checklist')}
-                      >
-                        <Pencil className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setDeleteConfirm(item.id)}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-              
-              {checklistItems.length === 0 && (
-                <div className="text-center py-8">
-                  <p className="text-gray-500 dark:text-gray-400">Нет пунктов чек-листа</p>
-                </div>
-              )}
-            </div>
+      {/* Чек-лист */}
+      <Card>
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <CardTitle>Чек-лист для приёма</CardTitle>
+            <Button onClick={() => setShowChecklistDialog(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Добавить
+            </Button>
           </div>
-        )}
-
-        {activeTab === 'responsibles' && (
-          <div className="space-y-4">
-            <Dialog open={isAddDialogOpen} onOpenChange={(open) => {
-              setIsAddDialogOpen(open);
-              if (!open) resetForm();
-            }}>
-              <DialogTrigger asChild>
-                <Button className="w-full">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Добавить ответственного
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>
-                    {editingItem ? 'Редактировать ответственного' : 'Добавить ответственного'}
-                  </DialogTitle>
-                </DialogHeader>
-                <form onSubmit={handleSubmitResponsible} className="space-y-4">
-                  <div>
-                    <Label htmlFor="name">Имя и фамилия</Label>
-                    <Input
-                      id="name"
-                      value={formData.name}
-                      onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                      placeholder="Введите имя и фамилию..."
-                      required
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <Button type="submit" className="flex-1">
-                      {editingItem ? 'Обновить' : 'Добавить'}
-                    </Button>
-                    <Button 
-                      type="button" 
-                      variant="outline" 
-                      onClick={resetForm}
+        </CardHeader>
+        <CardContent>
+          {sortedChecklistItems.length === 0 ? (
+            <p className="text-gray-500">Пункты чек-листа отсутствуют</p>
+          ) : (
+            <div className="space-y-2">
+              {sortedChecklistItems.map((item, index) => (
+                <div key={item.id} className="flex items-center gap-2 p-2 border rounded">
+                  <div className="flex flex-col gap-1">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => moveChecklistItem(item.id, 'up')}
+                      disabled={index === 0}
                     >
-                      Отмена
+                      <ArrowUp className="w-3 h-3" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => moveChecklistItem(item.id, 'down')}
+                      disabled={index === sortedChecklistItems.length - 1}
+                    >
+                      <ArrowDown className="w-3 h-3" />
                     </Button>
                   </div>
-                </form>
-              </DialogContent>
-            </Dialog>
-
-            <div className="space-y-3">
-              {responsibles.map((responsible) => (
-                <Card key={responsible.id}>
-                  <CardContent className="flex items-center justify-between p-4">
-                    <div className="flex-1">
-                      <p className="font-medium">{responsible.name}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
-                        Добавлен: {new Date(responsible.createdAt).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div className="flex gap-1 ml-4">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleEdit(responsible, 'responsible')}
-                      >
-                        <Pencil className="h-3 w-3" />
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => setDeleteConfirm(responsible.id)}
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-              
-              {responsibles.length === 0 && (
-                <div className="text-center py-8">
-                  <p className="text-gray-500 dark:text-gray-400">Нет ответственных</p>
+                  
+                  <span className="flex-1 text-sm">{item.question}</span>
+                  
+                  <div className="flex gap-1">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => handleEditChecklistItem(item)}
+                    >
+                      <Edit className="w-3 h-3" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => setDeleteChecklistId(item.id)}
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
+                  </div>
                 </div>
-              )}
+              ))}
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </CardContent>
+      </Card>
 
-      <ConfirmDialog
-        open={!!deleteConfirm}
-        onOpenChange={() => setDeleteConfirm(null)}
-        title={activeTab === 'checklist' ? 'Удалить пункт' : 'Удалить ответственного'}
-        description={
-          activeTab === 'checklist' 
-            ? 'Вы уверены, что хотите удалить этот пункт чек-листа?' 
-            : 'Вы уверены, что хотите удалить этого ответственного?'
-        }
-        onConfirm={() => deleteConfirm && handleDelete(deleteConfirm, activeTab)}
-        variant="destructive"
+      {/* Ответственные */}
+      <Card>
+        <CardHeader>
+          <div className="flex justify-between items-center">
+            <CardTitle>Ответственные лица</CardTitle>
+            <Button onClick={() => setShowPersonDialog(true)}>
+              <Plus className="w-4 h-4 mr-2" />
+              Добавить
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {responsiblePersons.length === 0 ? (
+            <p className="text-gray-500">Ответственные лица отсутствуют</p>
+          ) : (
+            <div className="space-y-2">
+              {responsiblePersons.map((person) => (
+                <div key={person.id} className="flex items-center justify-between p-2 border rounded">
+                  <span className="text-sm">{person.name}</span>
+                  <div className="flex gap-1">
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => handleEditPerson(person)}
+                    >
+                      <Edit className="w-3 h-3" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-6 w-6"
+                      onClick={() => setDeletePersonId(person.id)}
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Диалог добавления/редактирования пункта чек-листа */}
+      <Dialog open={showChecklistDialog} onOpenChange={(open) => !open && handleCloseChecklistDialog()}>
+        <DialogContent className="max-w-sm mx-4">
+          <DialogHeader>
+            <DialogTitle>
+              {editingChecklistItem ? 'Редактировать пункт' : 'Добавить пункт чек-листа'}
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSubmitChecklist} className="space-y-4">
+            <div>
+              <Label htmlFor="question">Вопрос</Label>
+              <Input
+                id="question"
+                value={checklistQuestion}
+                onChange={(e) => setChecklistQuestion(e.target.value)}
+                placeholder="Введите вопрос для проверки"
+                required
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" onClick={handleCloseChecklistDialog}>
+                Отмена
+              </Button>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? 'Сохранение...' : 'Сохранить'}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Диалог добавления/редактирования ответственного */}
+      <Dialog open={showPersonDialog} onOpenChange={(open) => !open && handleClosePersonDialog()}>
+        <DialogContent className="max-w-sm mx-4">
+          <DialogHeader>
+            <DialogTitle>
+              {editingPerson ? 'Редактировать ответственного' : 'Добавить ответственного'}
+            </DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleSubmitPerson} className="space-y-4">
+            <div>
+              <Label htmlFor="name">Имя и фамилия</Label>
+              <Input
+                id="name"
+                value={personName}
+                onChange={(e) => setPersonName(e.target.value)}
+                placeholder="Введите имя и фамилию"
+                required
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button type="button" variant="outline" onClick={handleClosePersonDialog}>
+                Отмена
+              </Button>
+              <Button type="submit" disabled={isSubmitting}>
+                {isSubmitting ? 'Сохранение...' : 'Сохранить'}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Диалоги подтверждения удаления */}
+      <ConfirmationDialog
+        open={deleteChecklistId !== null}
+        onOpenChange={(open) => !open && setDeleteChecklistId(null)}
+        title="Удаление пункта чек-листа"
+        description="Вы уверены, что хотите удалить этот пункт? Это действие нельзя отменить."
+        onConfirm={() => deleteChecklistId && handleDeleteChecklistItem(deleteChecklistId)}
         confirmText="Удалить"
+        variant="destructive"
       />
 
-      {showToast && (
-        <Toast
-          message={showToast.message}
-          type={showToast.type}
-          onClose={() => setShowToast(null)}
-        />
-      )}
-    </Layout>
+      <ConfirmationDialog
+        open={deletePersonId !== null}
+        onOpenChange={(open) => !open && setDeletePersonId(null)}
+        title="Удаление ответственного"
+        description="Вы уверены, что хотите удалить этого ответственного? Это действие нельзя отменить."
+        onConfirm={() => deletePersonId && handleDeletePerson(deletePersonId)}
+        confirmText="Удалить"
+        variant="destructive"
+      />
+    </div>
   );
 }

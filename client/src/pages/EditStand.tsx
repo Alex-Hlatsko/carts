@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import { useCollection } from '@/hooks/useFirestore';
 import { Stand, Material, ShelfItem } from '@/types';
 import { Button } from '@/components/ui/button';
@@ -10,9 +10,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { ArrowLeft, Plus, Minus } from 'lucide-react';
 import { useToast } from '@/components/ui/toast';
 
-export function AddStand() {
+export function EditStand() {
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { addItem } = useCollection<Stand>('stands');
+  const { data: stands, updateItem } = useCollection<Stand>('stands');
   const { data: materials } = useCollection<Material>('materials');
   const { showToast, ToastComponent } = useToast();
 
@@ -24,6 +25,18 @@ export function AddStand() {
   const [showMaterialDialog, setShowMaterialDialog] = useState(false);
   const [currentShelf, setCurrentShelf] = useState<1 | 2 | 3>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const stand = stands.find(s => s.id === id);
+
+  useEffect(() => {
+    if (stand) {
+      setNumber(stand.number);
+      setTheme(stand.theme);
+      setShelf1(stand.shelf1 || []);
+      setShelf2(stand.shelf2 || []);
+      setShelf3(stand.shelf3 || []);
+    }
+  }, [stand]);
 
   const addMaterialToShelf = (materialId: string) => {
     const material = materials.find(m => m.id === materialId);
@@ -118,30 +131,27 @@ export function AddStand() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!number.trim() || !theme.trim()) return;
+    if (!number.trim() || !theme.trim() || !id) return;
 
     setIsSubmitting(true);
 
-    const stand: Omit<Stand, 'id'> = {
+    const updates = {
       number: number.trim(),
       theme: theme.trim(),
-      status: 'В зале',
       shelf1,
       shelf2,
       shelf3,
-      createdAt: new Date(),
-      updatedAt: new Date()
     };
 
-    const result = await addItem(stand);
+    const result = await updateItem(id, updates);
     
     setIsSubmitting(false);
 
     if (result.success) {
-      showToast('Стенд успешно добавлен', 'success');
+      showToast('Стенд успешно обновлен', 'success');
       navigate('/stands');
     } else {
-      showToast('Ошибка при добавлении стенда', 'error');
+      showToast('Ошибка при обновлении стенда', 'error');
     }
   };
 
@@ -187,6 +197,14 @@ export function AddStand() {
     </Card>
   );
 
+  if (!stand) {
+    return (
+      <div className="p-4">
+        <div className="text-center">Стенд не найден</div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-4">
       {ToastComponent}
@@ -195,7 +213,7 @@ export function AddStand() {
         <Button variant="outline" size="icon" onClick={() => navigate('/stands')}>
           <ArrowLeft className="w-4 h-4" />
         </Button>
-        <h1 className="text-2xl font-bold">Добавить стенд</h1>
+        <h1 className="text-2xl font-bold">Редактировать стенд</h1>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -231,7 +249,7 @@ export function AddStand() {
         </div>
 
         <Button type="submit" className="w-full" disabled={isSubmitting}>
-          {isSubmitting ? 'Добавление...' : 'Добавить стенд'}
+          {isSubmitting ? 'Сохранение...' : 'Сохранить изменения'}
         </Button>
       </form>
 

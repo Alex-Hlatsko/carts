@@ -1,14 +1,8 @@
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+import React from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 
-interface ConfirmDialogProps {
+interface ConfirmationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   title: string;
@@ -19,7 +13,7 @@ interface ConfirmDialogProps {
   variant?: 'default' | 'destructive';
 }
 
-export function ConfirmDialog({
+export function ConfirmationDialog({
   open,
   onOpenChange,
   title,
@@ -28,7 +22,7 @@ export function ConfirmDialog({
   confirmText = 'Подтвердить',
   cancelText = 'Отмена',
   variant = 'default'
-}: ConfirmDialogProps) {
+}: ConfirmationDialogProps) {
   const handleConfirm = () => {
     onConfirm();
     onOpenChange(false);
@@ -36,17 +30,17 @@ export function ConfirmDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-sm mx-4">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
-        <DialogFooter>
+        <p className="text-sm text-gray-600">{description}</p>
+        <DialogFooter className="flex-col sm:flex-row gap-2">
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             {cancelText}
           </Button>
           <Button 
-            variant={variant} 
+            variant={variant === 'destructive' ? 'destructive' : 'default'}
             onClick={handleConfirm}
           >
             {confirmText}

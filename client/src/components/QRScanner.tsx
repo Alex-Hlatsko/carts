@@ -1,161 +1,127 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { BrowserMultiFormatReader } from '@zxing/library';
 import { Button } from '@/components/ui/button';
-import { SwitchCamera, StopCircle } from 'lucide-react';
+import { SwitchCamera, X } from 'lucide-react';
 
 interface QRScannerProps {
-  onScan: (result: string) => void;
-  onError?: (error: string) => void;
+  onScan: (data: string) => void;
+  onClose: () => void;
 }
 
-export function QRScanner({ onScan, onError }: QRScannerProps) {
+export function QRScanner({ onScan, onClose }: QRScannerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [isScanning, setIsScanning] = useState(false);
   const [devices, setDevices] = useState<MediaDeviceInfo[]>([]);
-  const [currentDeviceId, setCurrentDeviceId] = useState<string>('');
-  const [reader, setReader] = useState<BrowserMultiFormatReader | null>(null);
+  const [currentDeviceIndex, setCurrentDeviceIndex] = useState(0);
+  const [isScanning, setIsScanning] = useState(false);
+  const codeReader = useRef<BrowserMultiFormatReader>();
 
   useEffect(() => {
-    const codeReader = new BrowserMultiFormatReader();
-    setReader(codeReader);
-
+    codeReader.current = new BrowserMultiFormatReader();
+    
     const getDevices = async () => {
       try {
-        const videoDevices = await codeReader.listVideoInputDevices();
+        const videoDevices = await codeReader.current!.listVideoInputDevices();
         setDevices(videoDevices);
         
-        // Find back camera (environment facing)
-        const backCamera = videoDevices.find(device => 
+        // Предпочтительно выбираем заднюю камеру
+        const backCamera = videoDevices.findIndex(device => 
           device.label.toLowerCase().includes('back') || 
+          device.label.toLowerCase().includes('rear') ||
           device.label.toLowerCase().includes('environment')
         );
         
-        if (backCamera) {
-          setCurrentDeviceId(backCamera.deviceId);
-        } else if (videoDevices.length > 0) {
-          setCurrentDeviceId(videoDevices[0].deviceId);
+        if (backCamera !== -1) {
+          setCurrentDeviceIndex(backCamera);
         }
       } catch (err) {
-        onError?.('Не удалось получить доступ к камере');
+        console.error('Error getting devices:', err);
       }
     };
 
     getDevices();
 
     return () => {
-      codeReader.reset();
+      if (codeReader.current) {
+        codeReader.current.reset();
+      }
     };
-  }, [onError]);
+  }, []);
 
-  const startContinuousScanning = useCallback(async () => {
-    if (!reader || !videoRef.current || !currentDeviceId) return;
+  useEffect(() => {
+    if (devices.length > 0 && !isScanning) {
+      startScanning();
+    }
+  }, [devices, currentDeviceIndex]);
 
+  const startScanning = async () => {
+    if (!videoRef.current || !codeReader.current || devices.length === 0) return;
+
+    setIsScanning(true);
+    
     try {
-      setIsScanning(true);
+      const selectedDevice = devices[currentDeviceIndex];
       
-      await reader.decodeFromVideoDevice(
-        currentDeviceId,
+      codeReader.current.decodeFromVideoDevice(
+        selectedDevice.deviceId,
         videoRef.current,
-        (result, error) => {
+        (result, err) => {
           if (result) {
             onScan(result.getText());
-            stopScanning();
           }
         }
       );
     } catch (err) {
+      console.error('Error starting scanner:', err);
       setIsScanning(false);
-      onError?.('Ошибка сканирования QR кода');
-    }
-  }, [reader, currentDeviceId, onScan, onError]);
-
-  const stopScanning = useCallback(() => {
-    if (reader) {
-      reader.reset();
-    }
-    setIsScanning(false);
-  }, [reader]);
-
-  const switchCamera = () => {
-    if (devices.length > 1) {
-      const currentIndex = devices.findIndex(d => d.deviceId === currentDeviceId);
-      const nextIndex = (currentIndex + 1) % devices.length;
-      setCurrentDeviceId(devices[nextIndex].deviceId);
-      
-      if (isScanning) {
-        stopScanning();
-        setTimeout(() => {
-          startContinuousScanning();
-        }, 100);
-      }
     }
   };
 
-  // Auto start scanning when component mounts and device is selected
-  useEffect(() => {
-    if (currentDeviceId && !isScanning) {
-      const timer = setTimeout(() => {
-        startContinuousScanning();
-      }, 500);
-      return () => clearTimeout(timer);
+  const switchCamera = () => {
+    if (devices.length > 1) {
+      codeReader.current?.reset();
+      setIsScanning(false);
+      setCurrentDeviceIndex((prev) => (prev + 1) % devices.length);
     }
-  }, [currentDeviceId, startContinuousScanning, isScanning]);
+  };
+
+  const handleClose = () => {
+    if (codeReader.current) {
+      codeReader.current.reset();
+    }
+    onClose();
+  };
 
   return (
-    <div className="space-y-4">
-      <div className="relative bg-black rounded-lg overflow-hidden aspect-square">
+    <div className="fixed inset-0 bg-black z-50">
+      <div className="relative h-full">
         <video
           ref={videoRef}
           className="w-full h-full object-cover"
+          autoPlay
           playsInline
-          muted
         />
         
-        {isScanning && (
-          <div className="absolute inset-4 border-2 border-white rounded-lg">
-            <div className="absolute top-0 left-0 w-6 h-6 border-t-4 border-l-4 border-green-500 rounded-tl-lg"></div>
-            <div className="absolute top-0 right-0 w-6 h-6 border-t-4 border-r-4 border-green-500 rounded-tr-lg"></div>
-            <div className="absolute bottom-0 left-0 w-6 h-6 border-b-4 border-l-4 border-green-500 rounded-bl-lg"></div>
-            <div className="absolute bottom-0 right-0 w-6 h-6 border-b-4 border-r-4 border-green-500 rounded-br-lg"></div>
-            
-            <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2">
-              <div className="text-white text-center">
-                <div className="text-sm font-medium">Наведите на QR код</div>
-                <div className="text-xs mt-1">Сканирование автоматическое</div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {!isScanning && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-            <div className="text-center text-white">
-              <div className="text-lg font-medium mb-2">Сканер QR кода</div>
-              <Button onClick={startContinuousScanning} size="lg" variant="secondary">
-                Запустить сканер
-              </Button>
-            </div>
-          </div>
-        )}
-      </div>
-      
-      <div className="flex gap-2">
-        {isScanning ? (
-          <Button onClick={stopScanning} variant="outline" className="flex-1">
-            <StopCircle className="h-4 w-4 mr-2" />
-            Остановить
-          </Button>
-        ) : (
-          <Button onClick={startContinuousScanning} className="flex-1">
-            Запустить сканер
-          </Button>
-        )}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="w-64 h-64 border-2 border-white rounded-lg opacity-50"></div>
+        </div>
         
-        {devices.length > 1 && (
-          <Button onClick={switchCamera} variant="outline" size="icon">
-            <SwitchCamera className="h-4 w-4" />
+        <div className="absolute top-4 left-4 right-4 flex justify-between">
+          <Button variant="outline" size="icon" onClick={handleClose}>
+            <X className="w-5 h-5" />
           </Button>
-        )}
+          
+          {devices.length > 1 && (
+            <Button variant="outline" size="icon" onClick={switchCamera}>
+              <SwitchCamera className="w-5 h-5" />
+            </Button>
+          )}
+        </div>
+        
+        <div className="absolute bottom-4 left-4 right-4">
+          <p className="text-white text-center">
+            Наведите камеру на QR-код стенда
+          </p>
+        </div>
       </div>
     </div>
   );

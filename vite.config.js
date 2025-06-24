@@ -14,7 +14,6 @@ export default defineConfig({
     outDir: path.join(process.cwd(), 'dist'),
     emptyOutDir: true,
   },
-  clearScreen: false,
   server: {
     host: true,
     port: 3000,

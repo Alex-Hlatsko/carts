@@ -1,56 +1,65 @@
+export interface Material {
+  id: string;
+  name: string;
+  imageUrl?: string;
+}
+
+export interface ShelfItem {
+  materialId: string;
+  quantity: number;
+}
+
 export interface Stand {
   id: string;
   number: string;
   theme: string;
-  status: string; // "В зале" or person name
-  shelves: Shelf[];
-  qrCode: string;
+  status: 'В зале' | string;
+  shelf1: ShelfItem[];
+  shelf2: ShelfItem[];
+  shelf3: ShelfItem[];
   createdAt: Date;
-}
-
-export interface Shelf {
-  id: string;
-  materials: Material[];
-}
-
-export interface Material {
-  id: string;
-  name: string;
-  imageUrl: string;
-  createdAt: Date;
-}
-
-export interface Responsible {
-  id: string;
-  name: string;
-  createdAt: Date;
+  updatedAt: Date;
 }
 
 export interface ChecklistItem {
   id: string;
   question: string;
   order: number;
-  createdAt: Date;
+}
+
+export interface ResponsiblePerson {
+  id: string;
+  name: string;
 }
 
 export interface Report {
   id: string;
   standId: string;
   standNumber: string;
-  responsibleId: string;
-  responsibleName: string;
+  responsiblePersonId: string;
+  responsiblePersonName: string;
   date: Date;
-  answers: ChecklistAnswer[];
+  answers: ReportAnswer[];
   isServiced: boolean;
   servicedBy?: string;
-  servicedAt?: Date;
-  serviceNotes?: string;
-  createdAt: Date;
+  servicedDate?: Date;
+  servicedNotes?: string;
 }
 
-export interface ChecklistAnswer {
-  questionId: string;
+export interface ReportAnswer {
+  checklistItemId: string;
   question: string;
   answer: boolean;
   notes?: string;
+}
+
+export interface Transaction {
+  id: string;
+  standId: string;
+  standNumber: string;
+  type: 'выдача' | 'принятие';
+  responsiblePersonId: string;
+  responsiblePersonName: string;
+  recipientName?: string;
+  date: Date;
 }
