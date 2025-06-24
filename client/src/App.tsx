@@ -10,6 +10,8 @@ import { ReceiveStand } from '@/pages/ReceiveStand';
 import { GiveOutStand } from '@/pages/GiveOutStand';
 import { Materials } from '@/pages/Materials';
 import { Reports } from '@/pages/Reports';
+import { ReportDetail } from '@/pages/ReportDetail';
+import { ServiceReport } from '@/pages/ServiceReport';
 import { Settings } from '@/pages/Settings';
 
 function App() {
@@ -27,6 +29,8 @@ function App() {
           <Route path="give-out/:standId" element={<GiveOutStand />} />
           <Route path="materials" element={<Materials />} />
           <Route path="reports" element={<Reports />} />
+          <Route path="report/:id" element={<ReportDetail />} />
+          <Route path="service-report/:id" element={<ServiceReport />} />
           <Route path="settings" element={<Settings />} />
         </Route>
       </Routes>

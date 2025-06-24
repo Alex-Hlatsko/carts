@@ -4,7 +4,7 @@ import { Report } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Trash2, Eye, Tool } from 'lucide-react';
+import { Trash2, Eye, Wrench } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { useToast } from '@/components/ui/toast';
@@ -94,7 +94,7 @@ export function Reports() {
                 {hasIssues(report) && !report.isServiced && (
                   <Link to={`/service-report/${report.id}`}>
                     <Button variant="default" size="sm">
-                      <Tool className="w-4 h-4 mr-1" />
+                      <Wrench className="w-4 h-4 mr-1" />
                       Обслужить
                     </Button>
                   </Link>
