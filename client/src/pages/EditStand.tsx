@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { ArrowLeft, Plus, Minus } from 'lucide-react';
 import { useToast } from '@/components/ui/toast';
 
@@ -176,7 +176,7 @@ export function EditStand() {
         ) : (
           <div className="space-y-2">
             {shelfItems.map((item) => (
-              <div key={item.materialId} className="flex justify-between items-center bg-gray-50 p-2 rounded">
+              <div key={item.materialId} className="flex justify-between items-center bg-gray-700 p-2 rounded">
                 <span className="text-sm">{getMaterialName(item.materialId)}</span>
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium">x{item.quantity}</span>
@@ -257,6 +257,9 @@ export function EditStand() {
         <DialogContent className="max-w-sm mx-4">
           <DialogHeader>
             <DialogTitle>Выберите материал для полки {currentShelf}</DialogTitle>
+            <DialogDescription>
+              Выберите материал из списка для добавления на полку
+            </DialogDescription>
           </DialogHeader>
           <div className="space-y-2 max-h-64 overflow-y-auto">
             {materials.map((material) => (

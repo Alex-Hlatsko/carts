@@ -35,6 +35,9 @@ export function Reports() {
   };
 
   const hasIssues = (report: Report) => {
+    if (!report.answers || !Array.isArray(report.answers)) {
+      return false;
+    }
     return report.answers.some(answer => !answer.answer || answer.notes);
   };
 
@@ -52,7 +55,7 @@ export function Reports() {
       
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Отчёты</h1>
-        <p className="text-gray-600">Все отчёты по приёму стендов</p>
+        <p className="text-gray-400">Все отчёты по приёму стендов</p>
       </div>
 
       <div className="space-y-4">
@@ -62,7 +65,7 @@ export function Reports() {
               <div className="flex justify-between items-start">
                 <div>
                   <CardTitle className="text-lg">Стенд №{report.standNumber}</CardTitle>
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-gray-400">
                     {report.responsiblePersonName}
                   </p>
                   <p className="text-xs text-gray-500">
