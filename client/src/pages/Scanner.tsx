@@ -37,16 +37,41 @@ export function Scanner() {
   const { toast, showToast, hideToast } = useToast();
 
   const handleScan = (result: string) => {
-    const standId = result.replace('STAND_', '');
-    const stand = stands.find(s => s.number === standId);
+    console.log('Scanned QR code:', result);
+    
+    // Try to extract stand number from different QR code formats
+    let standNumber = '';
+    
+    if (result.startsWith('STAND_')) {
+      standNumber = result.replace('STAND_', '');
+    } else {
+      // Try to find any numbers in the QR code
+      const numbers = result.match(/\d+/);
+      if (numbers) {
+        standNumber = numbers[0];
+      } else {
+        standNumber = result; // Use the whole result as stand number
+      }
+    }
+    
+    console.log('Looking for stand number:', standNumber);
+    
+    const stand = stands.find(s => 
+      s.number === standNumber || 
+      s.number === result ||
+      s.id === result ||
+      result.includes(s.number)
+    );
     
     if (stand) {
-      setScannedStandId(standId);
+      console.log('Found stand:', stand);
+      setScannedStandId(standNumber);
       setSelectedStand(stand);
       setShowScanner(false);
       setShowActionDialog(true);
     } else {
-      showToast('Стенд не найден', 'error');
+      console.log('Stand not found. Available stands:', stands.map(s => s.number));
+      showToast(`Стенд не найден. Отсканированный код: ${result}`, 'error');
       setShowScanner(false);
     }
   };
@@ -155,6 +180,19 @@ export function Scanner() {
           <QrCode className="w-5 h-5 mr-2" />
           Открыть сканер
         </Button>
+        
+        {stands.length > 0 && (
+          <div className="mt-8 p-4 bg-muted rounded-lg">
+            <h3 className="font-semibold mb-2">Доступные стенды:</h3>
+            <div className="text-sm text-muted-foreground">
+              {stands.map(stand => (
+                <div key={stand.id}>
+                  Стенд {stand.number} - {stand.theme}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
       {showScanner && (
