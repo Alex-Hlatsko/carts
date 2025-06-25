@@ -9,18 +9,13 @@ export default defineConfig({
       '@': path.resolve(__dirname, './client/src'),
     },
   },
-  root: './client',
+  root: path.join(process.cwd(), 'client'),
   build: {
-    outDir: '../dist',
+    outDir: path.join(process.cwd(), 'dist'),
     emptyOutDir: true,
   },
   server: {
-    host: true,
     port: 3000,
-    open: true,
-  },
-  preview: {
     host: true,
-    port: 3000,
   },
 });
