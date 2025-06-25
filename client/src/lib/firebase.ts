@@ -5,12 +5,12 @@ import { FirebaseConfig } from '@/types';
 
 // TODO: Replace with your Firebase configuration
 const firebaseConfig: FirebaseConfig = {
-  apiKey: "YOUR_API_KEY_HERE",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID_HERE",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID_HERE",
-  appId: "YOUR_APP_ID_HERE"
+    apiKey: "AIzaSyBB0dOHC8-nA6c6fGWglFQRR8pdCs-LAic",
+    authDomain: "jwcarts-82c8f.firebaseapp.com",
+    projectId: "jwcarts-82c8f",
+    storageBucket: "jwcarts-82c8f.firebasestorage.app",
+    messagingSenderId: "602423977795",
+    appId: "1:602423977795:web:c61436084821d5c24af1f6",
 };
 
 let app: FirebaseApp | null = null;
