@@ -1,12 +1,12 @@
 {
-  "name": "mimo-magic-starter",
+  "name": "stands-app",
   "private": true,
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "build": "cd client && npm install && npm run build",
-    "dev": "cd client && npm run dev",
-    "start": "cd client && npm run dev"
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
   },
   "dependencies": {
     "@radix-ui/react-checkbox": "1.1.3",
@@ -41,7 +41,6 @@
     "@types/react-dom": "19.0.4",
     "@vitejs/plugin-react": "4.3.4",
     "autoprefixer": "10.4.18",
-    "ignore": "7.0.3",
     "postcss": "8.4.35",
     "tailwindcss": "3.4.17",
     "typescript": "5.8.2",
