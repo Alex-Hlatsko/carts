@@ -8,6 +8,7 @@ import { ArrowLeft, Package, Send, RotateCcw } from 'lucide-react';
 import { IssueForm } from '@/components/IssueForm';
 import { ReturnForm } from '@/components/ReturnForm';
 import { Stand } from '@/types';
+import { getStandByQR } from '@/lib/firestore';
 
 export function StandDetailPage() {
   const { qrCode } = useParams<{ qrCode: string }>();
@@ -26,17 +27,12 @@ export function StandDetailPage() {
 
   const fetchStand = async () => {
     try {
-      const response = await fetch(`/api/stands/qr/${encodeURIComponent(qrCode!)}`);
-      if (!response.ok) {
-        if (response.status === 404) {
-          setError('Стенд с таким QR-кодом не найден');
-        } else {
-          setError('Ошибка при загрузке стенда');
-        }
-        return;
+      const standData = await getStandByQR(qrCode!);
+      if (!standData) {
+        setError('Стенд с таким QR-кодом не найден');
+      } else {
+        setStand(standData);
       }
-      const data = await response.json();
-      setStand(data);
     } catch (error) {
       console.error('Error fetching stand:', error);
       setError('Ошибка при загрузке стенда');

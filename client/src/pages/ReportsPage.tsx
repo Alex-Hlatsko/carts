@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { FileText, Download, Wrench, ArrowLeft } from 'lucide-react';
 import { TransactionWithService, ResponsiblePerson } from '@/types';
+import { getTransactions, getResponsiblePersons, createStandService } from '@/lib/firestore';
 
 export function ReportsPage() {
   const [transactions, setTransactions] = useState<TransactionWithService[]>([]);
@@ -29,8 +30,7 @@ export function ReportsPage() {
 
   const fetchTransactions = async () => {
     try {
-      const response = await fetch('/api/transactions');
-      const data = await response.json();
+      const data = await getTransactions();
       setTransactions(data);
     } catch (error) {
       console.error('Error fetching transactions:', error);
@@ -41,8 +41,7 @@ export function ReportsPage() {
 
   const fetchResponsiblePersons = async () => {
     try {
-      const response = await fetch('/api/responsible-persons');
-      const data = await response.json();
+      const data = await getResponsiblePersons();
       setResponsiblePersons(data);
     } catch (error) {
       console.error('Error fetching responsible persons:', error);
@@ -93,23 +92,14 @@ export function ReportsPage() {
     
     setIsServicing(true);
     try {
-      const response = await fetch(`/api/transactions/${serviceModal.transaction.id}/service`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          responsible_person_id: parseInt(selectedResponsible),
-          comment: serviceComment || null
-        }),
+      await createStandService({
+        transaction_id: serviceModal.transaction.id,
+        responsible_person_id: selectedResponsible,
+        comment: serviceComment || null
       });
 
-      if (response.ok) {
-        setServiceModal({ isOpen: false, transaction: null });
-        fetchTransactions();
-      } else {
-        throw new Error('Failed to service transaction');
-      }
+      setServiceModal({ isOpen: false, transaction: null });
+      fetchTransactions();
     } catch (error) {
       console.error('Error servicing transaction:', error);
       alert('Ошибка при обслуживании');
@@ -352,7 +342,7 @@ export function ReportsPage() {
                   </SelectTrigger>
                   <SelectContent>
                     {responsiblePersons.map((person) => (
-                      <SelectItem key={person.id} value={person.id.toString()}>
+                      <SelectItem key={person.id} value={person.id}>
                         {person.first_name} {person.last_name}
                       </SelectItem>
                     ))}

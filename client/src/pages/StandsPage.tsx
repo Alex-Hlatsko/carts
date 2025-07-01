@@ -6,6 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { Plus, Edit, Trash2, QrCode, FileText } from 'lucide-react';
 import { StandForm } from '@/components/StandForm';
 import { Stand, TransactionWithService } from '@/types';
+import { getStands, deleteStand, getTransactions } from '@/lib/firestore';
+import QRCodeLib from 'qrcode';
 
 interface StandWithTemplate extends Stand {
   template_theme?: string;
@@ -25,8 +27,7 @@ export function StandsPage() {
 
   const fetchStands = async () => {
     try {
-      const response = await fetch('/api/stands');
-      const data = await response.json();
+      const data = await getStands();
       setStands(data);
     } catch (error) {
       console.error('Error fetching stands:', error);
@@ -37,15 +38,14 @@ export function StandsPage() {
 
   const fetchTransactions = async () => {
     try {
-      const response = await fetch('/api/transactions');
-      const data = await response.json();
+      const data = await getTransactions();
       setTransactions(data);
     } catch (error) {
       console.error('Error fetching transactions:', error);
     }
   };
 
-  const getLastReport = (standId: number) => {
+  const getLastReport = (standId: string) => {
     const standTransactions = transactions
       .filter(t => t.stand_id === standId && t.type === 'return')
       .sort((a, b) => new Date(b.date_time).getTime() - new Date(a.date_time).getTime());
@@ -58,15 +58,13 @@ export function StandsPage() {
     setIsFormOpen(true);
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: string) => {
     if (!confirm('Вы уверены, что хотите удалить этот стенд?')) {
       return;
     }
 
     try {
-      await fetch(`/api/stands/${id}`, {
-        method: 'DELETE',
-      });
+      await deleteStand(id);
       fetchStands();
     } catch (error) {
       console.error('Error deleting stand:', error);
@@ -75,11 +73,13 @@ export function StandsPage() {
 
   const handleDownloadQR = async (qrCode: string, standNumber: string) => {
     try {
-      const response = await fetch(`/api/qr/${encodeURIComponent(qrCode)}`);
-      const data = await response.json();
+      const qrCodeDataURL = await QRCodeLib.toDataURL(qrCode, {
+        width: 200,
+        margin: 2
+      });
       
       const link = document.createElement('a');
-      link.href = data.qrCode;
+      link.href = qrCodeDataURL;
       link.download = `stand-${standNumber}-qr.png`;
       link.click();
     } catch (error) {

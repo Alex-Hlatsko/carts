@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Stand, ChecklistItem, ResponsiblePerson } from '@/types';
+import { getChecklistSettings, getResponsiblePersons, createTransaction, updateStand } from '@/lib/firestore';
 
 interface ReturnFormProps {
   isOpen: boolean;
@@ -27,8 +28,7 @@ export function ReturnForm({ isOpen, onClose, stand }: ReturnFormProps) {
     const fetchData = async () => {
       try {
         // Fetch checklist settings
-        const checklistResponse = await fetch('/api/checklist-settings');
-        const checklistSettings = await checklistResponse.json();
+        const checklistSettings = await getChecklistSettings();
         setChecklistItems(checklistSettings.items);
         
         // Initialize checklist data
@@ -40,8 +40,7 @@ export function ReturnForm({ isOpen, onClose, stand }: ReturnFormProps) {
         setChecklistData(initialData);
 
         // Fetch responsible persons
-        const personsResponse = await fetch('/api/responsible-persons');
-        const persons = await personsResponse.json();
+        const persons = await getResponsiblePersons();
         setResponsiblePersons(persons);
       } catch (error) {
         console.error('Error fetching data:', error);
@@ -58,34 +57,35 @@ export function ReturnForm({ isOpen, onClose, stand }: ReturnFormProps) {
     setLoading(true);
 
     try {
-      const response = await fetch(`/api/stands/${stand.id}/return`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          received_by: receivedBy,
-          checklist_data: checklistData,
-          notes: notes || null
-        }),
+      // Update stand status
+      await updateStand(stand.id, { status: 'available' });
+      
+      // Create transaction record
+      await createTransaction({
+        stand_id: stand.id,
+        type: 'return',
+        issued_to: null,
+        issued_by: null,
+        received_by: receivedBy,
+        checklist_data: JSON.stringify(checklistData),
+        notes: notes || null,
+        stand_number: stand.number,
+        stand_name: stand.name,
+        stand_image_url: stand.image_url
       });
 
-      if (response.ok) {
-        setReceivedBy('');
-        setNotes('');
-        
-        // Reset checklist
-        const initialData: Record<string, any> = {};
-        checklistItems.forEach(item => {
-          initialData[item.id] = true;
-          initialData[`${item.id}_comment`] = '';
-        });
-        setChecklistData(initialData);
-        
-        onClose();
-      } else {
-        throw new Error('Failed to return stand');
-      }
+      setReceivedBy('');
+      setNotes('');
+      
+      // Reset checklist
+      const initialData: Record<string, any> = {};
+      checklistItems.forEach(item => {
+        initialData[item.id] = true;
+        initialData[`${item.id}_comment`] = '';
+      });
+      setChecklistData(initialData);
+      
+      onClose();
     } catch (error) {
       console.error('Error returning stand:', error);
       alert('Ошибка при приеме стенда');

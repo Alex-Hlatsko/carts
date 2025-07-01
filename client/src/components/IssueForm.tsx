@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Stand, ResponsiblePerson } from '@/types';
+import { getResponsiblePersons, createTransaction, updateStand } from '@/lib/firestore';
 
 interface IssueFormProps {
   isOpen: boolean;
@@ -24,8 +25,7 @@ export function IssueForm({ isOpen, onClose, stand }: IssueFormProps) {
   useEffect(() => {
     const fetchResponsiblePersons = async () => {
       try {
-        const response = await fetch('/api/responsible-persons');
-        const persons = await response.json();
+        const persons = await getResponsiblePersons();
         setResponsiblePersons(persons);
       } catch (error) {
         console.error('Error fetching responsible persons:', error);
@@ -42,20 +42,25 @@ export function IssueForm({ isOpen, onClose, stand }: IssueFormProps) {
     setLoading(true);
 
     try {
-      const response = await fetch(`/api/stands/${stand.id}/issue`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
+      // Update stand status
+      await updateStand(stand.id, { status: 'issued' });
+      
+      // Create transaction record
+      await createTransaction({
+        stand_id: stand.id,
+        type: 'issue',
+        issued_to: formData.issued_to,
+        issued_by: formData.issued_by,
+        received_by: null,
+        checklist_data: null,
+        notes: null,
+        stand_number: stand.number,
+        stand_name: stand.name,
+        stand_image_url: stand.image_url
       });
 
-      if (response.ok) {
-        setFormData({ issued_to: '', issued_by: '' });
-        onClose();
-      } else {
-        throw new Error('Failed to issue stand');
-      }
+      setFormData({ issued_to: '', issued_by: '' });
+      onClose();
     } catch (error) {
       console.error('Error issuing stand:', error);
       alert('Ошибка при выдаче стенда');

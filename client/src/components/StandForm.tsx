@@ -6,7 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ImageUpload } from '@/components/ImageUpload';
-import { Stand, StandTemplate } from '@/types';
+import { Stand, TemplateWithShelves } from '@/types';
+import { getTemplates, createStand, updateStand, getStands } from '@/lib/firestore';
 
 interface StandFormProps {
   isOpen: boolean;
@@ -19,17 +20,16 @@ export function StandForm({ isOpen, onClose, stand }: StandFormProps) {
     number: '',
     name: '',
     image_url: '' as string | null,
-    template_id: null as number | null
+    template_id: null as string | null
   });
-  const [templates, setTemplates] = useState<StandTemplate[]>([]);
+  const [templates, setTemplates] = useState<TemplateWithShelves[]>([]);
   const [loading, setLoading] = useState(false);
   const [numberError, setNumberError] = useState('');
 
   useEffect(() => {
     const fetchTemplates = async () => {
       try {
-        const response = await fetch('/api/templates');
-        const templatesData = await response.json();
+        const templatesData = await getTemplates();
         setTemplates(templatesData);
       } catch (error) {
         console.error('Error fetching templates:', error);
@@ -66,27 +66,30 @@ export function StandForm({ isOpen, onClose, stand }: StandFormProps) {
     setNumberError('');
 
     try {
-      const url = stand ? `/api/stands/${stand.id}` : '/api/stands';
-      const method = stand ? 'PUT' : 'POST';
-      
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(formData),
-      });
-
-      if (response.ok) {
-        onClose();
-      } else {
-        const errorData = await response.json();
-        if (errorData.error === 'Stand number already exists') {
+      // Check for duplicate numbers
+      if (!stand || stand.number !== formData.number) {
+        const existingStands = await getStands();
+        const duplicateStand = existingStands.find(s => s.number === formData.number);
+        if (duplicateStand) {
           setNumberError('Стенд с таким номером уже существует');
-        } else {
-          throw new Error('Failed to save stand');
+          setLoading(false);
+          return;
         }
       }
+
+      if (stand) {
+        await updateStand(stand.id, formData);
+      } else {
+        // Generate QR code for new stand
+        const qrCode = crypto.randomUUID();
+        await createStand({
+          ...formData,
+          qr_code: qrCode,
+          status: 'available'
+        });
+      }
+      
+      onClose();
     } catch (error) {
       console.error('Error saving stand:', error);
       alert('Ошибка при сохранении стенда');
@@ -95,7 +98,7 @@ export function StandForm({ isOpen, onClose, stand }: StandFormProps) {
     }
   };
 
-  const handleChange = (field: string, value: string | number | null) => {
+  const handleChange = (field: string, value: string | null) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
@@ -146,8 +149,8 @@ export function StandForm({ isOpen, onClose, stand }: StandFormProps) {
           <div>
             <Label htmlFor="template">Шаблон стенда</Label>
             <Select 
-              onValueChange={(value) => handleChange('template_id', value ? parseInt(value) : null)}
-              value={formData.template_id?.toString() || ''}
+              onValueChange={(value) => handleChange('template_id', value || null)}
+              value={formData.template_id || ''}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Выберите шаблон (необязательно)" />
@@ -155,7 +158,7 @@ export function StandForm({ isOpen, onClose, stand }: StandFormProps) {
               <SelectContent>
                 <SelectItem value="">Без шаблона</SelectItem>
                 {templates.map((template) => (
-                  <SelectItem key={template.id} value={template.id.toString()}>
+                  <SelectItem key={template.id} value={template.id}>
                     {template.theme}
                   </SelectItem>
                 ))}
