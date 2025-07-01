@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "build": "cd client && npm install && npm run build",
+    "build": "cd client && npm install && npm run build && cd .. && cp -r client/dist ./dist",
     "dev": "cd client && npm run dev",
     "start": "cd client && npm run dev"
   },
