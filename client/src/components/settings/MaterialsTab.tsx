@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Plus, Edit, Trash2, Image } from 'lucide-react';
 import { ImageUpload } from '@/components/ImageUpload';
-import { Material } from '@/types';
+import { Material, MaterialData } from '@/types';
 import { getMaterials, createMaterial, updateMaterial, deleteMaterial } from '@/lib/firestore';
 
 export function MaterialsTab() {
@@ -14,9 +14,9 @@ export function MaterialsTab() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
   const [loading, setLoading] = useState(true);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<MaterialData>({
     name: '',
-    image_url: null as string | null
+    imageUrl: undefined
   });
 
   useEffect(() => {
@@ -37,8 +37,8 @@ export function MaterialsTab() {
   const handleEdit = (material: Material) => {
     setEditingMaterial(material);
     setFormData({
-      name: material.name,
-      image_url: material.image_url
+      name: material.data.name,
+      imageUrl: material.data.imageUrl
     });
     setIsFormOpen(true);
   };
@@ -77,7 +77,7 @@ export function MaterialsTab() {
   const handleFormClose = () => {
     setIsFormOpen(false);
     setEditingMaterial(null);
-    setFormData({ name: '', image_url: null });
+    setFormData({ name: '', imageUrl: undefined });
   };
 
   const handleImageClick = (imageUrl: string) => {
@@ -100,14 +100,19 @@ export function MaterialsTab() {
   };
 
   if (loading) {
-    return <div className="text-center py-8">Загрузка...</div>;
+    return (
+      <div className="text-center py-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+        <p>Загрузка...</p>
+      </div>
+    );
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h3 className="text-lg font-semibold">Материалы</h3>
-        <Button onClick={() => setIsFormOpen(true)}>
+        <Button onClick={() => setIsFormOpen(true)} size="sm" className="w-full sm:w-auto">
           <Plus className="w-4 h-4 mr-2" />
           Добавить материал
         </Button>
@@ -119,34 +124,38 @@ export function MaterialsTab() {
           <p>Пока нет материалов</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {materials.map((material) => (
-            <div key={material.id} className="border rounded-lg p-4">
+            <div key={material.id} className="border rounded-lg p-3 sm:p-4">
               <div className="space-y-3">
-                {material.image_url && (
-                  <div className="cursor-pointer" onClick={() => handleImageClick(material.image_url!)}>
+                {material.data.imageUrl && (
+                  <div className="cursor-pointer" onClick={() => handleImageClick(material.data.imageUrl!)}>
                     <img
-                      src={material.image_url}
-                      alt={material.name}
+                      src={material.data.imageUrl}
+                      alt={material.data.name}
                       className="w-full h-32 object-cover rounded hover:opacity-80 transition-opacity"
                     />
                   </div>
                 )}
-                <h4 className="font-medium">{material.name}</h4>
+                <h4 className="font-medium line-clamp-2">{material.data.name}</h4>
                 <div className="flex gap-2">
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => handleEdit(material)}
+                    className="flex-1"
                   >
-                    <Edit className="w-4 h-4" />
+                    <Edit className="w-4 h-4 mr-1 sm:mr-0" />
+                    <span className="sm:hidden">Изменить</span>
                   </Button>
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => handleDelete(material.id)}
+                    className="flex-1"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-4 h-4 mr-1 sm:mr-0" />
+                    <span className="sm:hidden">Удалить</span>
                   </Button>
                 </div>
               </div>
@@ -156,7 +165,7 @@ export function MaterialsTab() {
       )}
 
       <Dialog open={isFormOpen} onOpenChange={handleFormClose}>
-        <DialogContent>
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>
               {editingMaterial ? 'Редактировать материал' : 'Добавить материал'}
@@ -177,12 +186,12 @@ export function MaterialsTab() {
             </div>
             
             <ImageUpload
-              value={formData.image_url}
-              onChange={(imageUrl) => setFormData(prev => ({ ...prev, image_url: imageUrl }))}
+              value={formData.imageUrl || null}
+              onChange={(imageUrl) => setFormData(prev => ({ ...prev, imageUrl: imageUrl || undefined }))}
               label="Изображение материала"
             />
             
-            <div className="flex gap-2 justify-end">
+            <div className="flex gap-2 justify-end pt-4">
               <Button type="button" variant="outline" onClick={handleFormClose}>
                 Отмена
               </Button>

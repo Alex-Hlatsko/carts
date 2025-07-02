@@ -1,28 +1,69 @@
-export interface Stand {
-  id: string;
-  number: string;
+// Types for the new Firebase structure
+export interface MaterialData {
   name: string;
-  image_url: string | null;
-  qr_code: string;
-  status: 'available' | 'issued';
-  template_id: string | null;
-  created_at: string;
-  updated_at: string;
+  imageUrl?: string;
 }
 
-export interface Transaction {
+export interface Material {
   id: string;
-  stand_id: string;
-  type: 'issue' | 'return';
-  issued_to: string | null;
-  issued_by: string | null;
-  received_by: string | null;
-  date_time: string;
-  checklist_data: string | null;
-  notes: string | null;
-  stand_number: string;
-  stand_name: string;
-  stand_image_url: string | null;
+  data: MaterialData;
+}
+
+export interface ShelfData {
+  number: number;
+  materials: string[]; // Array of material IDs
+}
+
+export interface StandData {
+  number: string;
+  theme: string;
+  shelves: ShelfData[];
+  status: string;
+  qrCode?: string;
+}
+
+export interface Stand {
+  id: string;
+  data: StandData;
+}
+
+export interface ChecklistData {
+  [key: string]: boolean;
+}
+
+export interface ReportData {
+  standId: string;
+  action: 'receive' | 'issue';
+  handledBy: string;
+  comments?: string;
+  checklist?: ChecklistData;
+  timestamp?: string;
+  issuedTo?: string;
+}
+
+export interface Report {
+  id: string;
+  data: ReportData;
+}
+
+export interface ResponsiblePersonData {
+  firstName: string;
+  lastName: string;
+}
+
+export interface ResponsiblePerson {
+  id: string;
+  data: ResponsiblePersonData;
+}
+
+export interface TemplateData {
+  theme: string;
+  shelves: ShelfData[];
+}
+
+export interface Template {
+  id: string;
+  data: TemplateData;
 }
 
 export interface ChecklistItem {
@@ -35,53 +76,15 @@ export interface ChecklistSettings {
   items: ChecklistItem[];
 }
 
-export interface Material {
-  id: string;
-  name: string;
-  image_url: string | null;
-  created_at: string;
-  updated_at: string;
+// Extended types for UI
+export interface StandWithMaterials extends Stand {
+  materialsData?: {
+    [shelfNumber: number]: Material[];
+  };
 }
 
-export interface StandTemplate {
-  id: string;
-  theme: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface TemplateShelf {
-  id: string;
-  template_id: string;
-  shelf_number: number;
-  material_id: string;
-}
-
-export interface ResponsiblePerson {
-  id: string;
-  first_name: string;
-  last_name: string;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface StandService {
-  id: string;
-  transaction_id: string;
-  responsible_person_id: string;
-  comment: string | null;
-  serviced_at: string;
-}
-
-export interface TemplateWithShelves extends StandTemplate {
-  shelves: Array<{
-    shelf_number: number;
-    materials: Material[];
-  }>;
-}
-
-export interface TransactionWithService extends Transaction {
-  service?: StandService & {
-    responsible_person_name: string;
+export interface TemplateWithMaterials extends Template {
+  materialsData?: {
+    [shelfNumber: number]: Material[];
   };
 }

@@ -1,5 +1,4 @@
 import * as React from 'react';
-import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -13,35 +12,36 @@ export function SettingsPage() {
   const navigate = useNavigate();
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div className="flex items-center gap-4">
         <Button 
           variant="ghost" 
           onClick={() => navigate('/')}
+          size="sm"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
           Назад
         </Button>
-        <h1 className="text-3xl font-bold">Настройки</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold">Настройки</h1>
       </div>
 
-      <Tabs defaultValue="templates" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="templates">
-            <Package className="w-4 h-4 mr-2" />
-            Шаблоны стендов
+      <Tabs defaultValue="templates" className="space-y-4 sm:space-y-6">
+        <TabsList className="grid w-full grid-cols-3 h-auto">
+          <TabsTrigger value="templates" className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 py-2">
+            <Package className="w-4 h-4" />
+            <span className="text-xs sm:text-sm">Шаблоны</span>
           </TabsTrigger>
-          <TabsTrigger value="materials">
-            <FileText className="w-4 h-4 mr-2" />
-            Материалы
+          <TabsTrigger value="materials" className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 py-2">
+            <FileText className="w-4 h-4" />
+            <span className="text-xs sm:text-sm">Материалы</span>
           </TabsTrigger>
-          <TabsTrigger value="responsible">
-            <Users className="w-4 h-4 mr-2" />
-            Ответственные
+          <TabsTrigger value="responsible" className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 py-2">
+            <Users className="w-4 h-4" />
+            <span className="text-xs sm:text-sm">Ответственные</span>
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="templates" className="space-y-6">
+        <TabsContent value="templates" className="space-y-4 sm:space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>Шаблоны стендов</CardTitle>
@@ -55,7 +55,7 @@ export function SettingsPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="materials" className="space-y-6">
+        <TabsContent value="materials" className="space-y-4 sm:space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>Материалы</CardTitle>
@@ -69,7 +69,7 @@ export function SettingsPage() {
           </Card>
         </TabsContent>
 
-        <TabsContent value="responsible" className="space-y-6">
+        <TabsContent value="responsible" className="space-y-4 sm:space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>Ответственные лица</CardTitle>

@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Plus, Edit, Trash2, Users } from 'lucide-react';
-import { ResponsiblePerson } from '@/types';
+import { ResponsiblePerson, ResponsiblePersonData } from '@/types';
 import { getResponsiblePersons, createResponsiblePerson, updateResponsiblePerson, deleteResponsiblePerson } from '@/lib/firestore';
 
 export function ResponsiblePersonsTab() {
@@ -13,9 +13,9 @@ export function ResponsiblePersonsTab() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingPerson, setEditingPerson] = useState<ResponsiblePerson | null>(null);
   const [loading, setLoading] = useState(true);
-  const [formData, setFormData] = useState({
-    first_name: '',
-    last_name: ''
+  const [formData, setFormData] = useState<ResponsiblePersonData>({
+    firstName: '',
+    lastName: ''
   });
 
   useEffect(() => {
@@ -36,8 +36,8 @@ export function ResponsiblePersonsTab() {
   const handleEdit = (person: ResponsiblePerson) => {
     setEditingPerson(person);
     setFormData({
-      first_name: person.first_name,
-      last_name: person.last_name
+      firstName: person.data.firstName,
+      lastName: person.data.lastName
     });
     setIsFormOpen(true);
   };
@@ -76,18 +76,23 @@ export function ResponsiblePersonsTab() {
   const handleFormClose = () => {
     setIsFormOpen(false);
     setEditingPerson(null);
-    setFormData({ first_name: '', last_name: '' });
+    setFormData({ firstName: '', lastName: '' });
   };
 
   if (loading) {
-    return <div className="text-center py-8">Загрузка...</div>;
+    return (
+      <div className="text-center py-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+        <p>Загрузка...</p>
+      </div>
+    );
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h3 className="text-lg font-semibold">Ответственные лица</h3>
-        <Button onClick={() => setIsFormOpen(true)}>
+        <Button onClick={() => setIsFormOpen(true)} size="sm" className="w-full sm:w-auto">
           <Plus className="w-4 h-4 mr-2" />
           Добавить ответственного
         </Button>
@@ -99,30 +104,31 @@ export function ResponsiblePersonsTab() {
           <p>Пока нет ответственных лиц</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {persons.map((person) => (
-            <div key={person.id} className="border rounded-lg p-4">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h4 className="font-medium">{person.first_name} {person.last_name}</h4>
-                  <p className="text-sm text-muted-foreground">
-                    Добавлен {new Date(person.created_at).toLocaleDateString('ru-RU')}
-                  </p>
+            <div key={person.id} className="border rounded-lg p-3 sm:p-4">
+              <div className="flex flex-col sm:flex-row justify-between items-start gap-3">
+                <div className="flex-1">
+                  <h4 className="font-medium">{person.data.firstName} {person.data.lastName}</h4>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 w-full sm:w-auto">
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => handleEdit(person)}
+                    className="flex-1 sm:flex-none"
                   >
-                    <Edit className="w-4 h-4" />
+                    <Edit className="w-4 h-4 mr-1 sm:mr-0" />
+                    <span className="sm:hidden">Изменить</span>
                   </Button>
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={() => handleDelete(person.id)}
+                    className="flex-1 sm:flex-none"
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <Trash2 className="w-4 h-4 mr-1 sm:mr-0" />
+                    <span className="sm:hidden">Удалить</span>
                   </Button>
                 </div>
               </div>
@@ -132,7 +138,7 @@ export function ResponsiblePersonsTab() {
       )}
 
       <Dialog open={isFormOpen} onOpenChange={handleFormClose}>
-        <DialogContent>
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>
               {editingPerson ? 'Редактировать ответственного' : 'Добавить ответственного'}
@@ -141,30 +147,30 @@ export function ResponsiblePersonsTab() {
           
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <Label htmlFor="first_name">Имя</Label>
+              <Label htmlFor="firstName">Имя</Label>
               <Input
-                id="first_name"
+                id="firstName"
                 type="text"
-                value={formData.first_name}
-                onChange={(e) => setFormData(prev => ({ ...prev, first_name: e.target.value }))}
+                value={formData.firstName}
+                onChange={(e) => setFormData(prev => ({ ...prev, firstName: e.target.value }))}
                 placeholder="Имя"
                 required
               />
             </div>
             
             <div>
-              <Label htmlFor="last_name">Фамилия</Label>
+              <Label htmlFor="lastName">Фамилия</Label>
               <Input
-                id="last_name"
+                id="lastName"
                 type="text"
-                value={formData.last_name}
-                onChange={(e) => setFormData(prev => ({ ...prev, last_name: e.target.value }))}
+                value={formData.lastName}
+                onChange={(e) => setFormData(prev => ({ ...prev, lastName: e.target.value }))}
                 placeholder="Фамилия"
                 required
               />
             </div>
             
-            <div className="flex gap-2 justify-end">
+            <div className="flex gap-2 justify-end pt-4">
               <Button type="button" variant="outline" onClick={handleFormClose}>
                 Отмена
               </Button>

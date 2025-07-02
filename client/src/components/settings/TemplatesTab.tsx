@@ -6,57 +6,68 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Edit, Trash2, Package, X } from 'lucide-react';
-import { Material, TemplateWithShelves } from '@/types';
+import { Material, Template, TemplateData } from '@/types';
 import { getMaterials, getTemplates, createTemplate, updateTemplate, deleteTemplate } from '@/lib/firestore';
 
 export function TemplatesTab() {
-  const [templates, setTemplates] = useState<TemplateWithShelves[]>([]);
+  const [templates, setTemplates] = useState<Template[]>([]);
   const [materials, setMaterials] = useState<Material[]>([]);
+  const [templateMaterials, setTemplateMaterials] = useState<Map<string, Map<number, Material[]>>>(new Map());
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingTemplate, setEditingTemplate] = useState<TemplateWithShelves | null>(null);
+  const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
   const [loading, setLoading] = useState(true);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<TemplateData>({
     theme: '',
     shelves: [
-      { shelf_number: 1, materials: [] as Material[] },
-      { shelf_number: 2, materials: [] as Material[] },
-      { shelf_number: 3, materials: [] as Material[] }
+      { number: 1, materials: [] },
+      { number: 2, materials: [] },
+      { number: 3, materials: [] }
     ]
   });
 
   useEffect(() => {
-    fetchTemplates();
-    fetchMaterials();
+    fetchData();
   }, []);
 
-  const fetchTemplates = async () => {
+  const fetchData = async () => {
     try {
-      const data = await getTemplates();
-      setTemplates(data);
+      const [templatesData, materialsData] = await Promise.all([
+        getTemplates(),
+        getMaterials()
+      ]);
+      
+      setTemplates(templatesData);
+      setMaterials(materialsData);
+      
+      // Load materials for all templates
+      const templatesMap = new Map<string, Map<number, Material[]>>();
+      
+      for (const template of templatesData) {
+        const templateMaterialsMap = new Map<number, Material[]>();
+        
+        for (const shelf of template.data.shelves) {
+          const shelfMaterials = shelf.materials
+            .map(id => materialsData.find(m => m.id === id))
+            .filter(Boolean) as Material[];
+          templateMaterialsMap.set(shelf.number, shelfMaterials);
+        }
+        
+        templatesMap.set(template.id, templateMaterialsMap);
+      }
+      
+      setTemplateMaterials(templatesMap);
     } catch (error) {
-      console.error('Error fetching templates:', error);
+      console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const fetchMaterials = async () => {
-    try {
-      const data = await getMaterials();
-      setMaterials(data);
-    } catch (error) {
-      console.error('Error fetching materials:', error);
-    }
-  };
-
-  const handleEdit = (template: TemplateWithShelves) => {
+  const handleEdit = (template: Template) => {
     setEditingTemplate(template);
     setFormData({
-      theme: template.theme,
-      shelves: [1, 2, 3].map(shelfNumber => ({
-        shelf_number: shelfNumber,
-        materials: template.shelves.find(s => s.shelf_number === shelfNumber)?.materials || []
-      }))
+      theme: template.data.theme,
+      shelves: template.data.shelves
     });
     setIsFormOpen(true);
   };
@@ -68,7 +79,7 @@ export function TemplatesTab() {
 
     try {
       await deleteTemplate(id);
-      fetchTemplates();
+      fetchData();
     } catch (error) {
       console.error('Error deleting template:', error);
     }
@@ -85,7 +96,7 @@ export function TemplatesTab() {
       }
       
       handleFormClose();
-      fetchTemplates();
+      fetchData();
     } catch (error) {
       console.error('Error saving template:', error);
       alert('Ошибка при сохранении шаблона');
@@ -98,38 +109,37 @@ export function TemplatesTab() {
     setFormData({
       theme: '',
       shelves: [
-        { shelf_number: 1, materials: [] },
-        { shelf_number: 2, materials: [] },
-        { shelf_number: 3, materials: [] }
+        { number: 1, materials: [] },
+        { number: 2, materials: [] },
+        { number: 3, materials: [] }
       ]
     });
   };
 
-  const addMaterialToShelf = (shelfIndex: number, materialId: string) => {
-    const material = materials.find(m => m.id === materialId);
-    if (!material) return;
-
+  const addMaterialToShelf = (shelfNumber: number, materialId: string) => {
     setFormData(prev => ({
       ...prev,
-      shelves: prev.shelves.map((shelf, index) => 
-        index === shelfIndex ? {
-          ...shelf,
-          materials: [...shelf.materials, material]
-        } : shelf
+      shelves: prev.shelves.map(shelf => 
+        shelf.number === shelfNumber 
+          ? { ...shelf, materials: [...shelf.materials, materialId] }
+          : shelf
       )
     }));
   };
 
-  const removeMaterialFromShelf = (shelfIndex: number, materialId: string) => {
+  const removeMaterialFromShelf = (shelfNumber: number, materialId: string) => {
     setFormData(prev => ({
       ...prev,
-      shelves: prev.shelves.map((shelf, index) => 
-        index === shelfIndex ? {
-          ...shelf,
-          materials: shelf.materials.filter(m => m.id !== materialId)
-        } : shelf
+      shelves: prev.shelves.map(shelf => 
+        shelf.number === shelfNumber 
+          ? { ...shelf, materials: shelf.materials.filter(id => id !== materialId) }
+          : shelf
       )
     }));
+  };
+
+  const getMaterialById = (id: string) => {
+    return materials.find(m => m.id === id);
   };
 
   const handleImageClick = (imageUrl: string) => {
@@ -152,14 +162,19 @@ export function TemplatesTab() {
   };
 
   if (loading) {
-    return <div className="text-center py-8">Загрузка...</div>;
+    return (
+      <div className="text-center py-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+        <p>Загрузка...</p>
+      </div>
+    );
   }
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <h3 className="text-lg font-semibold">Шаблоны стендов</h3>
-        <Button onClick={() => setIsFormOpen(true)}>
+        <Button onClick={() => setIsFormOpen(true)} size="sm" className="w-full sm:w-auto">
           <Plus className="w-4 h-4 mr-2" />
           Добавить шаблон
         </Button>
@@ -172,55 +187,67 @@ export function TemplatesTab() {
         </div>
       ) : (
         <div className="space-y-4">
-          {templates.map((template) => (
-            <div key={template.id} className="border rounded-lg p-4">
-              <div className="flex justify-between items-start mb-4">
-                <h4 className="text-lg font-medium">{template.theme}</h4>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleEdit(template)}
-                  >
-                    <Edit className="w-4 h-4" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleDelete(template.id)}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+          {templates.map((template) => {
+            const templateMats = templateMaterials.get(template.id) || new Map();
+            
+            return (
+              <div key={template.id} className="border rounded-lg p-3 sm:p-4">
+                <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-4">
+                  <h4 className="text-lg font-medium">{template.data.theme}</h4>
+                  <div className="flex gap-2 w-full sm:w-auto">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleEdit(template)}
+                      className="flex-1 sm:flex-none"
+                    >
+                      <Edit className="w-4 h-4 mr-1 sm:mr-0" />
+                      <span className="sm:hidden">Изменить</span>
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleDelete(template.id)}
+                      className="flex-1 sm:flex-none"
+                    >
+                      <Trash2 className="w-4 h-4 mr-1 sm:mr-0" />
+                      <span className="sm:hidden">Удалить</span>
+                    </Button>
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  {[1, 2, 3].map((shelfNumber) => {
+                    const shelfMaterials = templateMats.get(shelfNumber) || [];
+                    
+                    return (
+                      <div key={shelfNumber} className="border rounded p-3">
+                        <h5 className="font-medium mb-2">Полка {shelfNumber}</h5>
+                        <div className="space-y-2">
+                          {shelfMaterials.map((material) => (
+                            <div key={material.id} className="flex items-center gap-2">
+                              {material.data.imageUrl && (
+                                <img
+                                  src={material.data.imageUrl}
+                                  alt={material.data.name}
+                                  className="w-6 h-6 object-cover rounded cursor-pointer"
+                                  onClick={() => handleImageClick(material.data.imageUrl!)}
+                                />
+                              )}
+                              <span className="text-sm flex-1 truncate">{material.data.name}</span>
+                            </div>
+                          ))}
+                          {shelfMaterials.length === 0 && (
+                            <p className="text-sm text-muted-foreground">Нет материалов</p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {template.shelves.map((shelf) => (
-                  <div key={shelf.shelf_number} className="border rounded p-3">
-                    <h5 className="font-medium mb-2">Полка {shelf.shelf_number}</h5>
-                    <div className="space-y-2">
-                      {shelf.materials.map((material) => (
-                        <div key={material.id} className="flex items-center gap-2">
-                          {material.image_url && (
-                            <img
-                              src={material.image_url}
-                              alt={material.name}
-                              className="w-8 h-8 object-cover rounded cursor-pointer"
-                              onClick={() => handleImageClick(material.image_url!)}
-                            />
-                          )}
-                          <span className="text-sm">{material.name}</span>
-                        </div>
-                      ))}
-                      {shelf.materials.length === 0 && (
-                        <p className="text-sm text-muted-foreground">Нет материалов</p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
@@ -248,48 +275,62 @@ export function TemplatesTab() {
             <div className="space-y-4">
               <Label>Полки и материалы</Label>
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                {formData.shelves.map((shelf, shelfIndex) => (
-                  <div key={shelf.shelf_number} className="border rounded-lg p-4">
-                    <h4 className="font-medium mb-3">Полка {shelf.shelf_number}</h4>
+                {formData.shelves.map((shelf) => (
+                  <div key={shelf.number} className="border rounded-lg p-4">
+                    <h4 className="font-medium mb-3">Полка {shelf.number}</h4>
                     
                     <div className="space-y-3">
-                      <Select onValueChange={(value) => addMaterialToShelf(shelfIndex, value)}>
+                      <Select onValueChange={(value) => addMaterialToShelf(shelf.number, value)}>
                         <SelectTrigger>
                           <SelectValue placeholder="Добавить материал" />
                         </SelectTrigger>
                         <SelectContent>
                           {materials
-                            .filter(m => !shelf.materials.some(sm => sm.id === m.id))
+                            .filter(m => !shelf.materials.includes(m.id))
                             .map((material) => (
                               <SelectItem key={material.id} value={material.id}>
-                                {material.name}
+                                <div className="flex items-center gap-2">
+                                  {material.data.imageUrl && (
+                                    <img
+                                      src={material.data.imageUrl}
+                                      alt={material.data.name}
+                                      className="w-4 h-4 object-cover rounded"
+                                    />
+                                  )}
+                                  <span>{material.data.name}</span>
+                                </div>
                               </SelectItem>
                             ))}
                         </SelectContent>
                       </Select>
                       
                       <div className="space-y-2">
-                        {shelf.materials.map((material) => (
-                          <div key={material.id} className="flex items-center gap-2 p-2 bg-muted rounded">
-                            {material.image_url && (
-                              <img
-                                src={material.image_url}
-                                alt={material.name}
-                                className="w-6 h-6 object-cover rounded cursor-pointer"
-                                onClick={() => handleImageClick(material.image_url!)}
-                              />
-                            )}
-                            <span className="text-sm flex-1">{material.name}</span>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => removeMaterialFromShelf(shelfIndex, material.id)}
-                            >
-                              <X className="w-3 h-3" />
-                            </Button>
-                          </div>
-                        ))}
+                        {shelf.materials.map((materialId) => {
+                          const material = getMaterialById(materialId);
+                          if (!material) return null;
+                          
+                          return (
+                            <div key={materialId} className="flex items-center gap-2 p-2 bg-muted rounded">
+                              {material.data.imageUrl && (
+                                <img
+                                  src={material.data.imageUrl}
+                                  alt={material.data.name}
+                                  className="w-6 h-6 object-cover rounded cursor-pointer"
+                                  onClick={() => handleImageClick(material.data.imageUrl!)}
+                                />
+                              )}
+                              <span className="text-sm flex-1">{material.data.name}</span>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removeMaterialFromShelf(shelf.number, materialId)}
+                              >
+                                <X className="w-3 h-3" />
+                              </Button>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   </div>
@@ -297,7 +338,7 @@ export function TemplatesTab() {
               </div>
             </div>
             
-            <div className="flex gap-2 justify-end">
+            <div className="flex gap-2 justify-end pt-4">
               <Button type="button" variant="outline" onClick={handleFormClose}>
                 Отмена
               </Button>
