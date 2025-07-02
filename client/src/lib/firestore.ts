@@ -1,134 +1,97 @@
-import { 
-  collection, 
-  doc, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  getDocs, 
-  getDoc,
-  setDoc
-} from 'firebase/firestore';
-import { db } from './firebase';
+// This file now uses SQLite database instead of Firestore
+// The data structure is adapted to work with the existing SQLite schema
 
-// New Firestore structure interfaces
+// SQLite interfaces based on the schema
 export interface MaterialData {
   name: string;
-  imageUrl?: string;
+  image_url?: string;
 }
 
 export interface Material {
-  id: string;
-  data: MaterialData;
-}
-
-export interface ShelfData {
-  number: number;
-  materials: string[]; // Array of material IDs
-}
-
-export interface StandData {
-  number: string;
-  theme: string;
-  shelves: ShelfData[];
-  status: string;
-  qrCode?: string;
+  id: number;
+  name: string;
+  image_url?: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface Stand {
-  id: string;
-  data: StandData;
+  id: number;
+  number: string;
+  name: string;
+  image_url?: string;
+  qr_code: string;
+  status: string;
+  template_id?: number;
+  created_at: string;
+  updated_at: string;
 }
 
-export interface ChecklistData {
-  [key: string]: boolean;
+export interface StandTemplate {
+  id: number;
+  theme: string;
+  created_at: string;
+  updated_at: string;
 }
 
-export interface ReportData {
-  standId: string;
-  action: 'receive' | 'issue';
-  handledBy: string;
-  comments?: string;
-  checklist?: ChecklistData;
-  timestamp?: string;
-  issuedTo?: string;
-}
-
-export interface Report {
-  id: string;
-  data: ReportData;
-}
-
-export interface ResponsiblePersonData {
-  firstName: string;
-  lastName: string;
+export interface TemplateShelf {
+  id: number;
+  template_id: number;
+  shelf_number: number;
+  material_id: number;
 }
 
 export interface ResponsiblePerson {
-  id: string;
-  data: ResponsiblePersonData;
+  id: number;
+  first_name: string;
+  last_name: string;
+  created_at: string;
+  updated_at: string;
 }
 
-export interface TemplateData {
-  theme: string;
-  shelves: ShelfData[];
-}
-
-export interface Template {
-  id: string;
-  data: TemplateData;
-}
-
-export interface StandServiceData {
-  transactionId: string;
-  responsiblePersonId: string;
-  comment?: string;
-  servicedAt?: string;
-}
-
-export interface StandService {
-  id: string;
-  data: StandServiceData;
-}
-
-export interface TransactionWithService extends Report {
-  service?: StandService & {
-    responsible_person_name: string;
-  };
-  stand_number: string;
-  stand_name: string;
-  stand_image_url?: string;
-  type: 'receive' | 'issue';
-  date_time: string;
-  checklist_data?: string;
-  notes?: string;
+export interface Transaction {
+  id: number;
+  stand_id: number;
+  type: string;
   issued_to?: string;
   issued_by?: string;
   received_by?: string;
+  date_time: string;
+  checklist_data?: string;
+  notes?: string;
 }
 
-// Helper function to generate QR code
-const generateQRCode = () => {
-  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+export interface ChecklistSettings {
+  id: number;
+  items: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// API base URL - adjust as needed
+const API_BASE = '/api';
+
+// Helper function to make API calls
+const apiCall = async (endpoint: string, options: RequestInit = {}) => {
+  const response = await fetch(`${API_BASE}${endpoint}`, {
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+    ...options,
+  });
+  
+  if (!response.ok) {
+    throw new Error(`API call failed: ${response.statusText}`);
+  }
+  
+  return response.json();
 };
 
 // Materials functions
 export const getMaterials = async (): Promise<Material[]> => {
   try {
-    const querySnapshot = await getDocs(collection(db, 'materials'));
-    const materials: Material[] = [];
-    
-    querySnapshot.forEach((doc) => {
-      const data = doc.data();
-      materials.push({
-        id: doc.id,
-        data: {
-          name: data.name || '',
-          imageUrl: data.imageUrl
-        }
-      });
-    });
-    
-    return materials.sort((a, b) => a.data.name.localeCompare(b.data.name));
+    return await apiCall('/materials');
   } catch (error) {
     console.error('Error fetching materials:', error);
     return [];
@@ -136,426 +99,226 @@ export const getMaterials = async (): Promise<Material[]> => {
 };
 
 export const createMaterial = async (materialData: MaterialData): Promise<Material> => {
-  try {
-    const docData: any = {
-      name: materialData.name
-    };
-    if (materialData.imageUrl) {
-      docData.imageUrl = materialData.imageUrl;
-    }
-    
-    const docRef = await addDoc(collection(db, 'materials'), docData);
-    return {
-      id: docRef.id,
-      data: materialData
-    };
-  } catch (error) {
-    console.error('Error creating material:', error);
-    throw error;
-  }
+  return await apiCall('/materials', {
+    method: 'POST',
+    body: JSON.stringify(materialData),
+  });
 };
 
-export const updateMaterial = async (id: string, materialData: MaterialData): Promise<void> => {
-  try {
-    const docData: any = {
-      name: materialData.name
-    };
-    if (materialData.imageUrl) {
-      docData.imageUrl = materialData.imageUrl;
-    }
-    await updateDoc(doc(db, 'materials', id), docData);
-  } catch (error) {
-    console.error('Error updating material:', error);
-    throw error;
-  }
+export const updateMaterial = async (id: number, materialData: MaterialData): Promise<void> => {
+  await apiCall(`/materials/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(materialData),
+  });
 };
 
-export const deleteMaterial = async (id: string): Promise<void> => {
-  try {
-    await deleteDoc(doc(db, 'materials', id));
-  } catch (error) {
-    console.error('Error deleting material:', error);
-    throw error;
-  }
+export const deleteMaterial = async (id: number): Promise<void> => {
+  await apiCall(`/materials/${id}`, {
+    method: 'DELETE',
+  });
 };
 
 // Stands functions
 export const getStands = async (): Promise<Stand[]> => {
   try {
-    const querySnapshot = await getDocs(collection(db, 'stands'));
-    const stands: Stand[] = [];
-    
-    querySnapshot.forEach((doc) => {
-      const data = doc.data();
-      stands.push({
-        id: doc.id,
-        data: {
-          number: data.number || '',
-          theme: data.theme || '',
-          shelves: data.shelves || [],
-          status: data.status || 'В Зале Царства',
-          qrCode: data.qrCode
-        }
-      });
-    });
-    
-    return stands.sort((a, b) => parseInt(a.data.number) - parseInt(b.data.number));
+    return await apiCall('/stands');
   } catch (error) {
     console.error('Error fetching stands:', error);
     return [];
   }
 };
 
+export const getStandById = async (id: number): Promise<Stand | null> => {
+  try {
+    return await apiCall(`/stands/${id}`);
+  } catch (error) {
+    console.error('Error fetching stand by ID:', error);
+    return null;
+  }
+};
+
 export const getStandByQR = async (qrCode: string): Promise<Stand | null> => {
   try {
-    const stands = await getStands();
-    return stands.find(stand => stand.data.qrCode === qrCode) || null;
+    return await apiCall(`/stands/qr/${encodeURIComponent(qrCode)}`);
   } catch (error) {
     console.error('Error fetching stand by QR:', error);
     return null;
   }
 };
 
-export const createStand = async (standData: StandData): Promise<Stand> => {
-  try {
-    if (!standData.qrCode) {
-      standData.qrCode = generateQRCode();
-    }
-    
-    const docData: any = {
-      number: standData.number,
-      theme: standData.theme,
-      shelves: standData.shelves,
-      status: standData.status,
-      qrCode: standData.qrCode
-    };
-    
-    const docRef = await addDoc(collection(db, 'stands'), docData);
-    return {
-      id: docRef.id,
-      data: standData
-    };
-  } catch (error) {
-    console.error('Error creating stand:', error);
-    throw error;
-  }
+export const createStand = async (standData: Partial<Stand>): Promise<Stand> => {
+  return await apiCall('/stands', {
+    method: 'POST',
+    body: JSON.stringify(standData),
+  });
 };
 
-export const updateStand = async (id: string, standData: Partial<StandData>): Promise<void> => {
-  try {
-    const docData: any = {};
-    if (standData.number) docData.number = standData.number;
-    if (standData.theme) docData.theme = standData.theme;
-    if (standData.shelves) docData.shelves = standData.shelves;
-    if (standData.status) docData.status = standData.status;
-    if (standData.qrCode) docData.qrCode = standData.qrCode;
-    
-    await updateDoc(doc(db, 'stands', id), docData);
-  } catch (error) {
-    console.error('Error updating stand:', error);
-    throw error;
-  }
+export const updateStand = async (id: number, standData: Partial<Stand>): Promise<void> => {
+  await apiCall(`/stands/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(standData),
+  });
 };
 
-export const deleteStand = async (id: string): Promise<void> => {
-  try {
-    await deleteDoc(doc(db, 'stands', id));
-  } catch (error) {
-    console.error('Error deleting stand:', error);
-    throw error;
-  }
-};
-
-// Reports functions
-export const getReports = async (): Promise<Report[]> => {
-  try {
-    const querySnapshot = await getDocs(collection(db, 'reports'));
-    const reports: Report[] = [];
-    
-    querySnapshot.forEach((doc) => {
-      const data = doc.data();
-      reports.push({
-        id: doc.id,
-        data: {
-          standId: data.standId || '',
-          action: data.action || 'receive',
-          handledBy: data.handledBy || '',
-          comments: data.comments,
-          checklist: data.checklist,
-          timestamp: data.timestamp,
-          issuedTo: data.issuedTo
-        }
-      });
-    });
-    
-    return reports.sort((a, b) => {
-      const aTime = a.data.timestamp || '0';
-      const bTime = b.data.timestamp || '0';
-      return new Date(bTime).getTime() - new Date(aTime).getTime();
-    });
-  } catch (error) {
-    console.error('Error fetching reports:', error);
-    return [];
-  }
-};
-
-export const createReport = async (reportData: ReportData): Promise<Report> => {
-  try {
-    const timestamp = new Date().toISOString();
-    const docData: any = {
-      standId: reportData.standId,
-      action: reportData.action,
-      handledBy: reportData.handledBy,
-      timestamp: timestamp
-    };
-    
-    if (reportData.comments) docData.comments = reportData.comments;
-    if (reportData.checklist) docData.checklist = reportData.checklist;
-    if (reportData.issuedTo) docData.issuedTo = reportData.issuedTo;
-    
-    const docRef = await addDoc(collection(db, 'reports'), docData);
-    return {
-      id: docRef.id,
-      data: { ...reportData, timestamp }
-    };
-  } catch (error) {
-    console.error('Error creating report:', error);
-    throw error;
-  }
-};
-
-// Transaction alias for backward compatibility
-export const createTransaction = createReport;
-export const getTransactions = async (): Promise<TransactionWithService[]> => {
-  try {
-    const reports = await getReports();
-    const stands = await getStands();
-    const services = await getStandServices();
-    const responsiblePersons = await getResponsiblePersons();
-    
-    return reports.map(report => {
-      const stand = stands.find(s => s.id === report.data.standId);
-      const service = services.find(s => s.data.transactionId === report.id);
-      
-      let serviceWithName = undefined;
-      if (service) {
-        const person = responsiblePersons.find(p => p.id === service.data.responsiblePersonId);
-        serviceWithName = {
-          ...service,
-          responsible_person_name: person ? `${person.data.firstName} ${person.data.lastName}` : 'Неизвестно'
-        };
-      }
-      
-      return {
-        ...report,
-        service: serviceWithName,
-        stand_number: stand?.data.number || '',
-        stand_name: stand?.data.theme || '',
-        stand_image_url: undefined,
-        type: report.data.action,
-        date_time: report.data.timestamp || '',
-        checklist_data: report.data.checklist ? JSON.stringify(report.data.checklist) : undefined,
-        notes: report.data.comments,
-        issued_to: report.data.issuedTo,
-        issued_by: undefined,
-        received_by: report.data.action === 'receive' ? report.data.handledBy : undefined
-      };
-    });
-  } catch (error) {
-    console.error('Error fetching transactions:', error);
-    return [];
-  }
-};
-
-// Responsible persons functions
-export const getResponsiblePersons = async (): Promise<ResponsiblePerson[]> => {
-  try {
-    const querySnapshot = await getDocs(collection(db, 'responsiblePersons'));
-    const persons: ResponsiblePerson[] = [];
-    
-    querySnapshot.forEach((doc) => {
-      const data = doc.data();
-      persons.push({
-        id: doc.id,
-        data: {
-          firstName: data.firstName || '',
-          lastName: data.lastName || ''
-        }
-      });
-    });
-    
-    return persons.sort((a, b) => a.data.firstName.localeCompare(b.data.firstName));
-  } catch (error) {
-    console.error('Error fetching responsible persons:', error);
-    return [];
-  }
-};
-
-export const createResponsiblePerson = async (personData: ResponsiblePersonData): Promise<ResponsiblePerson> => {
-  try {
-    const docData: any = {
-      firstName: personData.firstName,
-      lastName: personData.lastName
-    };
-    
-    const docRef = await addDoc(collection(db, 'responsiblePersons'), docData);
-    return {
-      id: docRef.id,
-      data: personData
-    };
-  } catch (error) {
-    console.error('Error creating responsible person:', error);
-    throw error;
-  }
-};
-
-export const updateResponsiblePerson = async (id: string, personData: ResponsiblePersonData): Promise<void> => {
-  try {
-    const docData: any = {
-      firstName: personData.firstName,
-      lastName: personData.lastName
-    };
-    await updateDoc(doc(db, 'responsiblePersons', id), docData);
-  } catch (error) {
-    console.error('Error updating responsible person:', error);
-    throw error;
-  }
-};
-
-export const deleteResponsiblePerson = async (id: string): Promise<void> => {
-  try {
-    await deleteDoc(doc(db, 'responsiblePersons', id));
-  } catch (error) {
-    console.error('Error deleting responsible person:', error);
-    throw error;
-  }
+export const deleteStand = async (id: number): Promise<void> => {
+  await apiCall(`/stands/${id}`, {
+    method: 'DELETE',
+  });
 };
 
 // Templates functions
-export const getTemplates = async (): Promise<Template[]> => {
+export const getTemplates = async (): Promise<StandTemplate[]> => {
   try {
-    const querySnapshot = await getDocs(collection(db, 'templates'));
-    const templates: Template[] = [];
-    
-    querySnapshot.forEach((doc) => {
-      const data = doc.data();
-      templates.push({
-        id: doc.id,
-        data: {
-          theme: data.theme || '',
-          shelves: data.shelves || []
-        }
-      });
-    });
-    
-    return templates.sort((a, b) => a.data.theme.localeCompare(b.data.theme));
+    return await apiCall('/templates');
   } catch (error) {
     console.error('Error fetching templates:', error);
     return [];
   }
 };
 
-export const createTemplate = async (templateData: TemplateData): Promise<Template> => {
+export const getTemplateById = async (id: number): Promise<StandTemplate | null> => {
   try {
-    const docData: any = {
-      theme: templateData.theme,
-      shelves: templateData.shelves
-    };
-    
-    const docRef = await addDoc(collection(db, 'templates'), docData);
-    return {
-      id: docRef.id,
-      data: templateData
-    };
+    return await apiCall(`/templates/${id}`);
   } catch (error) {
-    console.error('Error creating template:', error);
-    throw error;
+    console.error('Error fetching template:', error);
+    return null;
   }
 };
 
-export const updateTemplate = async (id: string, templateData: TemplateData): Promise<void> => {
+export const getTemplateShelves = async (templateId: number): Promise<TemplateShelf[]> => {
   try {
-    const docData: any = {
-      theme: templateData.theme,
-      shelves: templateData.shelves
-    };
-    await updateDoc(doc(db, 'templates', id), docData);
+    return await apiCall(`/templates/${templateId}/shelves`);
   } catch (error) {
-    console.error('Error updating template:', error);
-    throw error;
-  }
-};
-
-export const deleteTemplate = async (id: string): Promise<void> => {
-  try {
-    await deleteDoc(doc(db, 'templates', id));
-  } catch (error) {
-    console.error('Error deleting template:', error);
-    throw error;
-  }
-};
-
-// Stand Services functions
-export const getStandServices = async (): Promise<StandService[]> => {
-  try {
-    const querySnapshot = await getDocs(collection(db, 'standServices'));
-    const services: StandService[] = [];
-    
-    querySnapshot.forEach((doc) => {
-      const data = doc.data();
-      services.push({
-        id: doc.id,
-        data: {
-          transactionId: data.transactionId || '',
-          responsiblePersonId: data.responsiblePersonId || '',
-          comment: data.comment,
-          servicedAt: data.servicedAt || new Date().toISOString()
-        }
-      });
-    });
-    
-    return services;
-  } catch (error) {
-    console.error('Error fetching stand services:', error);
+    console.error('Error fetching template shelves:', error);
     return [];
   }
 };
 
-export const createStandService = async (serviceData: {
-  transaction_id: string;
-  responsible_person_id: string;
-  comment?: string | null;
-}): Promise<StandService> => {
+export const createTemplate = async (templateData: { theme: string }): Promise<StandTemplate> => {
+  return await apiCall('/templates', {
+    method: 'POST',
+    body: JSON.stringify(templateData),
+  });
+};
+
+export const updateTemplate = async (id: number, templateData: { theme: string }): Promise<void> => {
+  await apiCall(`/templates/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(templateData),
+  });
+};
+
+export const deleteTemplate = async (id: number): Promise<void> => {
+  await apiCall(`/templates/${id}`, {
+    method: 'DELETE',
+  });
+};
+
+// Template shelves functions
+export const updateTemplateShelves = async (templateId: number, shelves: { shelf_number: number; material_ids: number[] }[]): Promise<void> => {
+  await apiCall(`/templates/${templateId}/shelves`, {
+    method: 'PUT',
+    body: JSON.stringify({ shelves }),
+  });
+};
+
+// Responsible persons functions
+export const getResponsiblePersons = async (): Promise<ResponsiblePerson[]> => {
   try {
-    const timestamp = new Date().toISOString();
-    const docData: any = {
-      transactionId: serviceData.transaction_id,
-      responsiblePersonId: serviceData.responsible_person_id,
-      servicedAt: timestamp
-    };
-    
-    if (serviceData.comment) {
-      docData.comment = serviceData.comment;
-    }
-    
-    const docRef = await addDoc(collection(db, 'standServices'), docData);
-    return {
-      id: docRef.id,
-      data: {
-        transactionId: serviceData.transaction_id,
-        responsiblePersonId: serviceData.responsible_person_id,
-        comment: serviceData.comment || undefined,
-        servicedAt: timestamp
-      }
-    };
+    return await apiCall('/responsible-persons');
   } catch (error) {
-    console.error('Error creating stand service:', error);
-    throw error;
+    console.error('Error fetching responsible persons:', error);
+    return [];
   }
 };
 
-// Helper function to get materials by IDs
-export const getMaterialsByIds = async (materialIds: string[]): Promise<Material[]> => {
+export const createResponsiblePerson = async (personData: { first_name: string; last_name: string }): Promise<ResponsiblePerson> => {
+  return await apiCall('/responsible-persons', {
+    method: 'POST',
+    body: JSON.stringify(personData),
+  });
+};
+
+export const updateResponsiblePerson = async (id: number, personData: { first_name: string; last_name: string }): Promise<void> => {
+  await apiCall(`/responsible-persons/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(personData),
+  });
+};
+
+export const deleteResponsiblePerson = async (id: number): Promise<void> => {
+  await apiCall(`/responsible-persons/${id}`, {
+    method: 'DELETE',
+  });
+};
+
+// Transactions functions
+export const getTransactions = async (): Promise<Transaction[]> => {
+  try {
+    return await apiCall('/transactions');
+  } catch (error) {
+    console.error('Error fetching transactions:', error);
+    return [];
+  }
+};
+
+export const createTransaction = async (transactionData: Partial<Transaction>): Promise<Transaction> => {
+  return await apiCall('/transactions', {
+    method: 'POST',
+    body: JSON.stringify(transactionData),
+  });
+};
+
+// Checklist settings functions
+export const getChecklistSettings = async () => {
+  try {
+    const settings = await apiCall('/checklist-settings');
+    if (settings && settings.items) {
+      return {
+        items: typeof settings.items === 'string' ? JSON.parse(settings.items) : settings.items
+      };
+    }
+    
+    // Return default settings
+    return {
+      items: [
+        {
+          id: 'poster_condition',
+          label: 'Постер в надлежащем состоянии?',
+          required: true
+        },
+        {
+          id: 'literature_complete',
+          label: 'На всех ли полках есть хотя бы по одному экземпляру на польском и украинском языках?',
+          required: true
+        },
+        {
+          id: 'stand_clean',
+          label: 'Чистый ли стенд (полки и колёсики)?',
+          required: true
+        },
+        {
+          id: 'inventory_complete',
+          label: 'Инвентарь в полном комплекте? (тряпка, влажные салфетки, скребок, папка, чехлы)',
+          required: true
+        }
+      ]
+    };
+  } catch (error) {
+    console.error('Error fetching checklist settings:', error);
+    return { items: [] };
+  }
+};
+
+export const updateChecklistSettings = async (settings: any): Promise<void> => {
+  await apiCall('/checklist-settings', {
+    method: 'PUT',
+    body: JSON.stringify(settings),
+  });
+};
+
+// Helper functions for compatibility
+export const getMaterialsByIds = async (materialIds: number[]): Promise<Material[]> => {
   try {
     const allMaterials = await getMaterials();
     return allMaterials.filter(material => materialIds.includes(material.id));
@@ -565,56 +328,18 @@ export const getMaterialsByIds = async (materialIds: string[]): Promise<Material
   }
 };
 
-// Checklist settings (stored as a single document)
-export const getChecklistSettings = async () => {
-  try {
-    const docRef = doc(db, 'settings', 'checklist');
-    const docSnap = await getDoc(docRef);
-    
-    if (docSnap.exists()) {
-      const data = docSnap.data();
-      return {
-        items: data.items || []
-      };
-    } else {
-      // Return default settings
-      return {
-        items: [
-          {
-            id: 'poster_condition',
-            label: 'Постер в надлежащем состоянии?',
-            required: true
-          },
-          {
-            id: 'literature_complete',
-            label: 'На всех ли полках есть хотя бы по одному экземпляру на польском и украинском языках?',
-            required: true
-          },
-          {
-            id: 'stand_clean',
-            label: 'Чистый ли стенд (полки и колёсики)?',
-            required: true
-          },
-          {
-            id: 'inventory_complete',
-            label: 'Инвентарь в полном комплекте? (тряпка, влажные салфетки, скребок, папка, чехлы)',
-            required: true
-          }
-        ]
-      };
-    }
-  } catch (error) {
-    console.error('Error fetching checklist settings:', error);
-    return { items: [] };
-  }
+// Service functions
+export const createStandService = async (serviceData: {
+  transaction_id: number;
+  responsible_person_id: number;
+  comment?: string | null;
+}): Promise<void> => {
+  await apiCall('/stand-services', {
+    method: 'POST',
+    body: JSON.stringify(serviceData),
+  });
 };
 
-export const updateChecklistSettings = async (settings: any): Promise<void> => {
-  try {
-    const docRef = doc(db, 'settings', 'checklist');
-    await setDoc(docRef, settings);
-  } catch (error) {
-    console.error('Error updating checklist settings:', error);
-    throw error;
-  }
-};
+// Legacy compatibility functions
+export const createReport = createTransaction;
+export const getReports = getTransactions;

@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Package, Send, RotateCcw } from 'lucide-react';
 import { IssueForm } from '@/components/IssueForm';
 import { ReturnForm } from '@/components/ReturnForm';
-import { Stand } from '@/types';
+import { Stand } from '@/lib/firestore';
 import { getStandByQR } from '@/lib/firestore';
 
 export function StandDetailPage() {
@@ -89,23 +89,23 @@ export function StandDetailPage() {
           <div className="flex justify-between items-start">
             <div>
               <CardTitle className="text-xl sm:text-2xl">
-                Стенд #{stand.data.number}
+                Стенд #{stand.number}
               </CardTitle>
               <p className="text-muted-foreground mt-1">
-                {stand.data.theme}
+                {stand.name}
               </p>
             </div>
             <Badge 
-              variant={stand.data.status === 'В Зале Царства' ? 'default' : 'secondary'}
+              variant={stand.status === 'available' ? 'default' : 'secondary'}
               className="text-sm"
             >
-              {stand.data.status}
+              {stand.status === 'available' ? 'Доступен' : 'Выдан'}
             </Badge>
           </div>
         </CardHeader>
         <CardContent>
           <div className="flex gap-4 justify-center">
-            {stand.data.status === 'В Зале Царства' ? (
+            {stand.status === 'available' ? (
               <Button 
                 onClick={() => setShowIssueForm(true)}
                 className="flex-1 max-w-xs"

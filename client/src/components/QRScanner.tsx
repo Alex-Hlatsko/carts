@@ -28,6 +28,18 @@ export function QRScanner({ onScan, onClose }: QRScannerProps) {
         setIsLoading(true);
         setError(null);
 
+        // Request camera permissions first
+        try {
+          await navigator.mediaDevices.getUserMedia({ video: true });
+        } catch (err) {
+          console.error('Camera permission denied:', err);
+          if (mounted) {
+            setError('Разрешение на использование камеры отклонено. Пожалуйста, разрешите доступ к камере в настройках браузера.');
+            setIsLoading(false);
+          }
+          return;
+        }
+
         // Check if camera is available
         const hasCamera = await QrScanner.hasCamera();
         if (!hasCamera) {
@@ -45,19 +57,40 @@ export function QRScanner({ onScan, onClose }: QRScannerProps) {
           console.log('Available cameras:', availableCameras);
         }
 
+        if (availableCameras.length === 0) {
+          if (mounted) {
+            setError('Камеры не найдены');
+            setIsLoading(false);
+          }
+          return;
+        }
+
+        // Select camera with preference for back camera
+        let preferredCamera = availableCameras.find(camera => 
+          camera.label.toLowerCase().includes('back') || 
+          camera.label.toLowerCase().includes('rear') ||
+          camera.label.toLowerCase().includes('environment')
+        );
+        
+        if (!preferredCamera) {
+          preferredCamera = availableCameras[currentCameraIndex] || availableCameras[0];
+        }
+
         // Create scanner instance
-        const preferredCamera = availableCameras[currentCameraIndex] || availableCameras[0];
         const scanner = new QrScanner(
           videoRef.current,
           (result) => {
             console.log('QR Code scanned:', result.data);
-            onScan(result.data);
+            if (mounted) {
+              onScan(result.data);
+            }
           },
           {
             returnDetailedScanResult: true,
             highlightScanRegion: true,
             highlightCodeOutline: true,
-            preferredCamera: preferredCamera?.id || 'environment'
+            preferredCamera: preferredCamera?.id || 'environment',
+            maxScansPerSecond: 5,
           }
         );
 
@@ -69,7 +102,17 @@ export function QRScanner({ onScan, onClose }: QRScannerProps) {
       } catch (err) {
         console.error('Scanner initialization error:', err);
         if (mounted) {
-          setError('Не удалось запустить камеру. Проверьте разрешения.');
+          let errorMessage = 'Не удалось запустить камеру.';
+          if (err instanceof Error) {
+            if (err.message.includes('Permission denied')) {
+              errorMessage = 'Разрешение на использование камеры отклонено. Пожалуйста, разрешите доступ к камере.';
+            } else if (err.message.includes('not found')) {
+              errorMessage = 'Камера не найдена на вашем устройстве.';
+            } else if (err.message.includes('in use')) {
+              errorMessage = 'Камера уже используется другим приложением.';
+            }
+          }
+          setError(errorMessage);
           setIsLoading(false);
         }
       }
@@ -80,8 +123,12 @@ export function QRScanner({ onScan, onClose }: QRScannerProps) {
     return () => {
       mounted = false;
       if (scannerRef.current) {
-        scannerRef.current.stop();
-        scannerRef.current.destroy();
+        try {
+          scannerRef.current.stop();
+          scannerRef.current.destroy();
+        } catch (err) {
+          console.error('Error cleaning up scanner:', err);
+        }
         scannerRef.current = null;
       }
     };
@@ -92,7 +139,7 @@ export function QRScanner({ onScan, onClose }: QRScannerProps) {
 
     try {
       const nextIndex = (currentCameraIndex + 1) % cameras.length;
-      console.log('Switching to camera index:', nextIndex);
+      console.log('Switching to camera index:', nextIndex, 'Camera:', cameras[nextIndex]);
       
       // Stop current scanner
       if (scannerRef.current) {
@@ -105,6 +152,12 @@ export function QRScanner({ onScan, onClose }: QRScannerProps) {
     } catch (error) {
       console.error('Error switching camera:', error);
     }
+  };
+
+  const handleRetry = () => {
+    setError(null);
+    setIsLoading(true);
+    setCurrentCameraIndex(0);
   };
 
   return (
@@ -131,8 +184,11 @@ export function QRScanner({ onScan, onClose }: QRScannerProps) {
           
           {error && (
             <div className="text-center py-8">
-              <p className="text-destructive mb-4">{error}</p>
-              <Button onClick={onClose}>Закрыть</Button>
+              <p className="text-destructive mb-4 text-sm">{error}</p>
+              <div className="flex gap-2 justify-center">
+                <Button onClick={handleRetry} size="sm">Попробовать снова</Button>
+                <Button onClick={onClose} variant="outline" size="sm">Закрыть</Button>
+              </div>
             </div>
           )}
           
@@ -144,12 +200,13 @@ export function QRScanner({ onScan, onClose }: QRScannerProps) {
                   className="w-full h-64 object-cover rounded-lg bg-black"
                   playsInline
                   muted
+                  autoPlay
                 />
-                <div className="absolute inset-0 border-2 border-primary rounded-lg pointer-events-none">
-                  <div className="absolute top-2 left-2 w-6 h-6 border-l-4 border-t-4 border-primary"></div>
-                  <div className="absolute top-2 right-2 w-6 h-6 border-r-4 border-t-4 border-primary"></div>
-                  <div className="absolute bottom-2 left-2 w-6 h-6 border-l-4 border-b-4 border-primary"></div>
-                  <div className="absolute bottom-2 right-2 w-6 h-6 border-r-4 border-b-4 border-primary"></div>
+                <div className="absolute inset-4 border-2 border-primary rounded-lg pointer-events-none">
+                  <div className="absolute top-0 left-0 w-6 h-6 border-l-4 border-t-4 border-primary"></div>
+                  <div className="absolute top-0 right-0 w-6 h-6 border-r-4 border-t-4 border-primary"></div>
+                  <div className="absolute bottom-0 left-0 w-6 h-6 border-l-4 border-b-4 border-primary"></div>
+                  <div className="absolute bottom-0 right-0 w-6 h-6 border-r-4 border-b-4 border-primary"></div>
                 </div>
               </div>
               
@@ -157,8 +214,8 @@ export function QRScanner({ onScan, onClose }: QRScannerProps) {
                 Наведите камеру на QR-код стенда
               </p>
               
-              {cameras.length > 1 && (
-                <div className="flex justify-center">
+              <div className="flex justify-center gap-2">
+                {cameras.length > 1 && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -166,10 +223,13 @@ export function QRScanner({ onScan, onClose }: QRScannerProps) {
                     className="flex items-center gap-2"
                   >
                     <RotateCcw className="w-4 h-4" />
-                    Переключить камеру
+                    Переключить
                   </Button>
-                </div>
-              )}
+                )}
+                <Button variant="outline" size="sm" onClick={onClose}>
+                  Закрыть
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>
