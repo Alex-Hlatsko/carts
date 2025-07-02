@@ -76,6 +76,34 @@ export interface ChecklistSettings {
   items: ChecklistItem[];
 }
 
+export interface StandServiceData {
+  transactionId: string;
+  responsiblePersonId: string;
+  comment?: string;
+  servicedAt?: string;
+}
+
+export interface StandService {
+  id: string;
+  data: StandServiceData;
+}
+
+export interface TransactionWithService extends Report {
+  service?: StandService & {
+    responsible_person_name: string;
+  };
+  stand_number: string;
+  stand_name: string;
+  stand_image_url?: string;
+  type: 'receive' | 'issue';
+  date_time: string;
+  checklist_data?: string;
+  notes?: string;
+  issued_to?: string;
+  issued_by?: string;
+  received_by?: string;
+}
+
 // Extended types for UI
 export interface StandWithMaterials extends Stand {
   materialsData?: {
