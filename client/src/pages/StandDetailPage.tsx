@@ -74,7 +74,7 @@ export function StandDetailPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <div className="max-w-2xl mx-auto space-y-6 px-4">
       <Button 
         variant="ghost" 
         onClick={() => navigate('/scan')}
@@ -88,34 +88,24 @@ export function StandDetailPage() {
         <CardHeader>
           <div className="flex justify-between items-start">
             <div>
-              <CardTitle className="text-2xl">
-                Стенд #{stand.number}
+              <CardTitle className="text-xl sm:text-2xl">
+                Стенд #{stand.data.number}
               </CardTitle>
               <p className="text-muted-foreground mt-1">
-                {stand.name}
+                {stand.data.theme}
               </p>
             </div>
             <Badge 
-              variant={stand.status === 'available' ? 'default' : 'secondary'}
+              variant={stand.data.status === 'В Зале Царства' ? 'default' : 'secondary'}
               className="text-sm"
             >
-              {stand.status === 'available' ? 'Доступен' : 'Выдан'}
+              {stand.data.status}
             </Badge>
           </div>
         </CardHeader>
         <CardContent>
-          {stand.image_url && (
-            <div className="mb-6">
-              <img
-                src={stand.image_url}
-                alt={`Стенд ${stand.number}`}
-                className="w-full max-w-sm mx-auto rounded-lg"
-              />
-            </div>
-          )}
-          
           <div className="flex gap-4 justify-center">
-            {stand.status === 'available' ? (
+            {stand.data.status === 'В Зале Царства' ? (
               <Button 
                 onClick={() => setShowIssueForm(true)}
                 className="flex-1 max-w-xs"

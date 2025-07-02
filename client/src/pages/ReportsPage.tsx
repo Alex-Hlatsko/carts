@@ -52,7 +52,7 @@ export function ReportsPage() {
     return new Date(dateString).toLocaleString('ru-RU');
   };
 
-  const parseChecklist = (checklistData: string | null) => {
+  const parseChecklist = (checklistData: string | null | undefined) => {
     if (!checklistData) return null;
     try {
       return JSON.parse(checklistData);
@@ -62,7 +62,7 @@ export function ReportsPage() {
   };
 
   const needsService = (transaction: TransactionWithService) => {
-    if (transaction.type !== 'return' || transaction.service) return false;
+    if (transaction.type !== 'receive' || transaction.service) return false;
     
     const checklist = parseChecklist(transaction.checklist_data);
     if (!checklist) return false;
@@ -114,14 +114,19 @@ export function ReportsPage() {
   };
 
   if (loading) {
-    return <div className="text-center py-8">Загрузка...</div>;
+    return (
+      <div className="text-center py-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+        <p>Загрузка...</p>
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Отчеты</h1>
-        <Button variant="outline" onClick={handleExportPDF}>
+    <div className="space-y-4 sm:space-y-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <h1 className="text-2xl sm:text-3xl font-bold">Отчеты</h1>
+        <Button variant="outline" onClick={handleExportPDF} size="sm">
           <Download className="w-4 h-4 mr-2" />
           Экспорт в PDF
         </Button>
@@ -144,8 +149,8 @@ export function ReportsPage() {
             
             return (
               <Card key={transaction.id}>
-                <CardHeader>
-                  <div className="flex justify-between items-start">
+                <CardHeader className="pb-3">
+                  <div className="flex flex-col sm:flex-row justify-between items-start gap-2">
                     <div>
                       <CardTitle className="text-lg">
                         Стенд #{transaction.stand_number}
@@ -163,83 +168,71 @@ export function ReportsPage() {
                       </p>
                       {transaction.service && (
                         <Badge variant="outline" className="mt-1">
-                          Обслужено {formatDate(transaction.service.serviced_at)}
+                          Обслужено {formatDate(transaction.service.data.servicedAt || '')}
                         </Badge>
                       )}
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {transaction.stand_image_url && (
-                      <div>
-                        <img
-                          src={transaction.stand_image_url}
-                          alt={`Стенд ${transaction.stand_number}`}
-                          className="w-full h-32 object-cover rounded"
-                        />
-                      </div>
-                    )}
-                    
-                    <div className="space-y-2">
-                      {transaction.type === 'issue' ? (
-                        <>
-                          <p><strong>Выдан:</strong> {transaction.issued_to}</p>
-                          <p><strong>Выдал:</strong> {transaction.issued_by}</p>
-                        </>
-                      ) : (
-                        <>
-                          <p><strong>Принял:</strong> {transaction.received_by}</p>
-                          {checklist && (
-                            <div className="mt-4">
-                              <h4 className="font-semibold mb-2">Чек-лист:</h4>
-                              <div className="space-y-1 text-sm">
-                                {Object.entries(checklist).map(([key, value]) => {
-                                  if (key.endsWith('_comment')) return null;
-                                  const comment = checklist[`${key}_comment`];
-                                  const label = key.replace(/_/g, ' ');
-                                  return (
-                                    <div key={key} className="space-y-1">
-                                      <div className="flex justify-between">
-                                        <span className="capitalize">{label}:</span>
-                                        <Badge variant={value ? 'default' : 'destructive'}>
-                                          {value ? 'Да' : 'Нет'}
-                                        </Badge>
-                                      </div>
-                                      {comment && (
-                                        <p className="text-xs text-muted-foreground bg-muted p-2 rounded">
-                                          Комментарий: {comment}
-                                        </p>
-                                      )}
+                  <div className="space-y-2">
+                    {transaction.type === 'issue' ? (
+                      <>
+                        <p><strong>Выдан:</strong> {transaction.issued_to}</p>
+                        <p><strong>Выдал:</strong> {transaction.issued_by}</p>
+                      </>
+                    ) : (
+                      <>
+                        <p><strong>Принял:</strong> {transaction.received_by}</p>
+                        {checklist && (
+                          <div className="mt-4">
+                            <h4 className="font-semibold mb-2">Чек-лист:</h4>
+                            <div className="space-y-1 text-sm">
+                              {Object.entries(checklist).map(([key, value]) => {
+                                if (key.endsWith('_comment')) return null;
+                                const comment = checklist[`${key}_comment`];
+                                const label = key.replace(/_/g, ' ');
+                                return (
+                                  <div key={key} className="space-y-1">
+                                    <div className="flex justify-between">
+                                      <span className="capitalize">{label}:</span>
+                                      <Badge variant={value ? 'default' : 'destructive'}>
+                                        {value ? 'Да' : 'Нет'}
+                                      </Badge>
                                     </div>
-                                  );
-                                })}
-                              </div>
+                                    {comment && (
+                                      <p className="text-xs text-muted-foreground bg-muted p-2 rounded">
+                                        Комментарий: {comment}
+                                      </p>
+                                    )}
+                                  </div>
+                                );
+                              })}
                             </div>
-                          )}
-                          {transaction.notes && (
-                            <div className="mt-4">
-                              <h4 className="font-semibold mb-1">Дополнительные замечания:</h4>
-                              <p className="text-sm bg-muted p-2 rounded">
-                                {transaction.notes}
+                          </div>
+                        )}
+                        {transaction.notes && (
+                          <div className="mt-4">
+                            <h4 className="font-semibold mb-1">Дополнительные замечания:</h4>
+                            <p className="text-sm bg-muted p-2 rounded">
+                              {transaction.notes}
+                            </p>
+                          </div>
+                        )}
+                        {transaction.service && (
+                          <div className="mt-4">
+                            <h4 className="font-semibold mb-1">Обслуживание:</h4>
+                            <p className="text-sm"><strong>Ответственный:</strong> {transaction.service.responsible_person_name}</p>
+                            <p className="text-sm"><strong>Дата:</strong> {formatDate(transaction.service.data.servicedAt || '')}</p>
+                            {transaction.service.data.comment && (
+                              <p className="text-sm bg-muted p-2 rounded mt-1">
+                                <strong>Комментарий:</strong> {transaction.service.data.comment}
                               </p>
-                            </div>
-                          )}
-                          {transaction.service && (
-                            <div className="mt-4">
-                              <h4 className="font-semibold mb-1">Обслуживание:</h4>
-                              <p className="text-sm"><strong>Ответственный:</strong> {transaction.service.responsible_person_name}</p>
-                              <p className="text-sm"><strong>Дата:</strong> {formatDate(transaction.service.serviced_at)}</p>
-                              {transaction.service.comment && (
-                                <p className="text-sm bg-muted p-2 rounded mt-1">
-                                  <strong>Комментарий:</strong> {transaction.service.comment}
-                                </p>
-                              )}
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
+                            )}
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
                   
                   {requiresService && (
@@ -248,6 +241,7 @@ export function ReportsPage() {
                         onClick={() => handleServiceClick(transaction)}
                         variant="outline"
                         className="w-full"
+                        size="sm"
                       >
                         <Wrench className="w-4 h-4 mr-2" />
                         Обслужить
@@ -273,56 +267,6 @@ export function ReportsPage() {
           
           {serviceModal.transaction && (
             <div className="space-y-4">
-              {/* Show full report */}
-              <div className="border rounded p-4 bg-muted">
-                <h4 className="font-semibold mb-2">Отчет о приеме</h4>
-                <p className="text-sm"><strong>Дата:</strong> {formatDate(serviceModal.transaction.date_time)}</p>
-                <p className="text-sm"><strong>Принял:</strong> {serviceModal.transaction.received_by}</p>
-                
-                {(() => {
-                  const checklist = parseChecklist(serviceModal.transaction.checklist_data);
-                  if (checklist) {
-                    return (
-                      <div className="mt-3">
-                        <h5 className="font-medium mb-2">Чек-лист:</h5>
-                        <div className="space-y-2">
-                          {Object.entries(checklist).map(([key, value]) => {
-                            if (key.endsWith('_comment')) return null;
-                            const comment = checklist[`${key}_comment`];
-                            const label = key.replace(/_/g, ' ');
-                            return (
-                              <div key={key} className="space-y-1">
-                                <div className="flex justify-between text-sm">
-                                  <span className="capitalize">{label}:</span>
-                                  <Badge variant={value ? 'default' : 'destructive'} className="text-xs">
-                                    {value ? 'Да' : 'Нет'}
-                                  </Badge>
-                                </div>
-                                {comment && (
-                                  <p className="text-xs text-muted-foreground bg-background p-2 rounded">
-                                    Комментарий: {comment}
-                                  </p>
-                                )}
-                              </div>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    );
-                  }
-                  return null;
-                })()}
-                
-                {serviceModal.transaction.notes && (
-                  <div className="mt-3">
-                    <h5 className="font-medium mb-1">Дополнительные замечания:</h5>
-                    <p className="text-sm bg-background p-2 rounded">
-                      {serviceModal.transaction.notes}
-                    </p>
-                  </div>
-                )}
-              </div>
-              
               <div>
                 <Label htmlFor="service_comment">Комментарий по обслуживанию</Label>
                 <Textarea
@@ -343,7 +287,7 @@ export function ReportsPage() {
                   <SelectContent>
                     {responsiblePersons.map((person) => (
                       <SelectItem key={person.id} value={person.id}>
-                        {person.first_name} {person.last_name}
+                        {person.data.firstName} {person.data.lastName}
                       </SelectItem>
                     ))}
                   </SelectContent>

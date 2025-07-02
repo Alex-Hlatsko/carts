@@ -24,7 +24,9 @@ export function ChecklistSettingsPage() {
   const fetchSettings = async () => {
     try {
       const data = await getChecklistSettings();
-      setSettings(data);
+      if (data && data.items) {
+        setSettings(data as ChecklistSettings);
+      }
     } catch (error) {
       console.error('Error fetching checklist settings:', error);
     } finally {
@@ -75,20 +77,26 @@ export function ChecklistSettingsPage() {
   };
 
   if (loading) {
-    return <div className="text-center py-8">Загрузка...</div>;
+    return (
+      <div className="text-center py-8">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+        <p>Загрузка...</p>
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       <div className="flex items-center gap-4">
         <Button 
           variant="ghost" 
           onClick={() => navigate('/')}
+          size="sm"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
           Назад
         </Button>
-        <h1 className="text-3xl font-bold">Настройки чек-листа</h1>
+        <h1 className="text-2xl sm:text-3xl font-bold">Настройки чек-листа</h1>
       </div>
 
       <Card>
@@ -97,8 +105,8 @@ export function ChecklistSettingsPage() {
         </CardHeader>
         <CardContent className="space-y-6">
           {settings.items.map((item, index) => (
-            <div key={item.id} className="flex items-start gap-4 p-4 border rounded-lg">
-              <div className="flex-1 space-y-2">
+            <div key={item.id} className="flex flex-col sm:flex-row items-start gap-4 p-3 sm:p-4 border rounded-lg">
+              <div className="flex-1 space-y-2 w-full">
                 <Label htmlFor={`item-${item.id}`}>Пункт {index + 1}</Label>
                 <Input
                   id={`item-${item.id}`}
@@ -123,30 +131,38 @@ export function ChecklistSettingsPage() {
                 variant="outline"
                 size="sm"
                 onClick={() => handleRemoveItem(item.id)}
+                className="w-full sm:w-auto"
               >
-                <Trash2 className="w-4 h-4" />
+                <Trash2 className="w-4 h-4 mr-1 sm:mr-0" />
+                <span className="sm:hidden">Удалить</span>
               </Button>
             </div>
           ))}
 
           <div className="border-t pt-6">
             <Label htmlFor="new-item">Добавить новый пункт</Label>
-            <div className="flex gap-2 mt-2">
+            <div className="flex flex-col sm:flex-row gap-2 mt-2">
               <Input
                 id="new-item"
                 value={newItemLabel}
                 onChange={(e) => setNewItemLabel(e.target.value)}
                 placeholder="Введите новый пункт проверки"
                 onKeyPress={(e) => e.key === 'Enter' && handleAddItem()}
+                className="flex-1"
               />
-              <Button onClick={handleAddItem} disabled={!newItemLabel.trim()}>
-                <Plus className="w-4 h-4" />
+              <Button 
+                onClick={handleAddItem} 
+                disabled={!newItemLabel.trim()}
+                className="w-full sm:w-auto"
+              >
+                <Plus className="w-4 h-4 mr-1 sm:mr-0" />
+                <span className="sm:hidden">Добавить</span>
               </Button>
             </div>
           </div>
 
           <div className="flex justify-end pt-6 border-t">
-            <Button onClick={handleSave} disabled={saving}>
+            <Button onClick={handleSave} disabled={saving} className="w-full sm:w-auto">
               <Save className="w-4 h-4 mr-2" />
               {saving ? 'Сохранение...' : 'Сохранить изменения'}
             </Button>

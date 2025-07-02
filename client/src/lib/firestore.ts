@@ -78,6 +78,34 @@ export interface Template {
   data: TemplateData;
 }
 
+export interface StandServiceData {
+  transactionId: string;
+  responsiblePersonId: string;
+  comment?: string;
+  servicedAt?: string;
+}
+
+export interface StandService {
+  id: string;
+  data: StandServiceData;
+}
+
+export interface TransactionWithService extends Report {
+  service?: StandService & {
+    responsible_person_name: string;
+  };
+  stand_number: string;
+  stand_name: string;
+  stand_image_url?: string;
+  type: 'receive' | 'issue';
+  date_time: string;
+  checklist_data?: string;
+  notes?: string;
+  issued_to?: string;
+  issued_by?: string;
+  received_by?: string;
+}
+
 // Helper function to generate QR code
 const generateQRCode = () => {
   return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
@@ -90,9 +118,13 @@ export const getMaterials = async (): Promise<Material[]> => {
     const materials: Material[] = [];
     
     querySnapshot.forEach((doc) => {
+      const data = doc.data();
       materials.push({
         id: doc.id,
-        data: doc.data() as MaterialData
+        data: {
+          name: data.name || '',
+          imageUrl: data.imageUrl
+        }
       });
     });
     
@@ -105,7 +137,14 @@ export const getMaterials = async (): Promise<Material[]> => {
 
 export const createMaterial = async (materialData: MaterialData): Promise<Material> => {
   try {
-    const docRef = await addDoc(collection(db, 'materials'), materialData);
+    const docData: any = {
+      name: materialData.name
+    };
+    if (materialData.imageUrl) {
+      docData.imageUrl = materialData.imageUrl;
+    }
+    
+    const docRef = await addDoc(collection(db, 'materials'), docData);
     return {
       id: docRef.id,
       data: materialData
@@ -118,7 +157,13 @@ export const createMaterial = async (materialData: MaterialData): Promise<Materi
 
 export const updateMaterial = async (id: string, materialData: MaterialData): Promise<void> => {
   try {
-    await updateDoc(doc(db, 'materials', id), materialData);
+    const docData: any = {
+      name: materialData.name
+    };
+    if (materialData.imageUrl) {
+      docData.imageUrl = materialData.imageUrl;
+    }
+    await updateDoc(doc(db, 'materials', id), docData);
   } catch (error) {
     console.error('Error updating material:', error);
     throw error;
@@ -141,9 +186,16 @@ export const getStands = async (): Promise<Stand[]> => {
     const stands: Stand[] = [];
     
     querySnapshot.forEach((doc) => {
+      const data = doc.data();
       stands.push({
         id: doc.id,
-        data: doc.data() as StandData
+        data: {
+          number: data.number || '',
+          theme: data.theme || '',
+          shelves: data.shelves || [],
+          status: data.status || 'В Зале Царства',
+          qrCode: data.qrCode
+        }
       });
     });
     
@@ -170,7 +222,15 @@ export const createStand = async (standData: StandData): Promise<Stand> => {
       standData.qrCode = generateQRCode();
     }
     
-    const docRef = await addDoc(collection(db, 'stands'), standData);
+    const docData: any = {
+      number: standData.number,
+      theme: standData.theme,
+      shelves: standData.shelves,
+      status: standData.status,
+      qrCode: standData.qrCode
+    };
+    
+    const docRef = await addDoc(collection(db, 'stands'), docData);
     return {
       id: docRef.id,
       data: standData
@@ -183,7 +243,14 @@ export const createStand = async (standData: StandData): Promise<Stand> => {
 
 export const updateStand = async (id: string, standData: Partial<StandData>): Promise<void> => {
   try {
-    await updateDoc(doc(db, 'stands', id), standData);
+    const docData: any = {};
+    if (standData.number) docData.number = standData.number;
+    if (standData.theme) docData.theme = standData.theme;
+    if (standData.shelves) docData.shelves = standData.shelves;
+    if (standData.status) docData.status = standData.status;
+    if (standData.qrCode) docData.qrCode = standData.qrCode;
+    
+    await updateDoc(doc(db, 'stands', id), docData);
   } catch (error) {
     console.error('Error updating stand:', error);
     throw error;
@@ -206,9 +273,18 @@ export const getReports = async (): Promise<Report[]> => {
     const reports: Report[] = [];
     
     querySnapshot.forEach((doc) => {
+      const data = doc.data();
       reports.push({
         id: doc.id,
-        data: doc.data() as ReportData
+        data: {
+          standId: data.standId || '',
+          action: data.action || 'receive',
+          handledBy: data.handledBy || '',
+          comments: data.comments,
+          checklist: data.checklist,
+          timestamp: data.timestamp,
+          issuedTo: data.issuedTo
+        }
       });
     });
     
@@ -225,15 +301,69 @@ export const getReports = async (): Promise<Report[]> => {
 
 export const createReport = async (reportData: ReportData): Promise<Report> => {
   try {
-    reportData.timestamp = new Date().toISOString();
-    const docRef = await addDoc(collection(db, 'reports'), reportData);
+    const timestamp = new Date().toISOString();
+    const docData: any = {
+      standId: reportData.standId,
+      action: reportData.action,
+      handledBy: reportData.handledBy,
+      timestamp: timestamp
+    };
+    
+    if (reportData.comments) docData.comments = reportData.comments;
+    if (reportData.checklist) docData.checklist = reportData.checklist;
+    if (reportData.issuedTo) docData.issuedTo = reportData.issuedTo;
+    
+    const docRef = await addDoc(collection(db, 'reports'), docData);
     return {
       id: docRef.id,
-      data: reportData
+      data: { ...reportData, timestamp }
     };
   } catch (error) {
     console.error('Error creating report:', error);
     throw error;
+  }
+};
+
+// Transaction alias for backward compatibility
+export const createTransaction = createReport;
+export const getTransactions = async (): Promise<TransactionWithService[]> => {
+  try {
+    const reports = await getReports();
+    const stands = await getStands();
+    const services = await getStandServices();
+    const responsiblePersons = await getResponsiblePersons();
+    
+    return reports.map(report => {
+      const stand = stands.find(s => s.id === report.data.standId);
+      const service = services.find(s => s.data.transactionId === report.id);
+      
+      let serviceWithName = undefined;
+      if (service) {
+        const person = responsiblePersons.find(p => p.id === service.data.responsiblePersonId);
+        serviceWithName = {
+          ...service,
+          responsible_person_name: person ? `${person.data.firstName} ${person.data.lastName}` : 'Неизвестно'
+        };
+      }
+      
+      return {
+        ...report,
+        service: serviceWithName,
+        stand_number: stand?.data.number || '',
+        stand_name: stand?.data.theme || '',
+        stand_image_url: undefined,
+        type: report.data.action,
+        date_time: report.data.timestamp || '',
+        checklist_data: report.data.checklist ? JSON.stringify(report.data.checklist) : undefined,
+        notes: report.data.comments,
+        issued_to: report.data.issuedTo,
+        issued_by: undefined,
+        received_by: report.data.action === 'receive' ? report.data.handledBy : undefined
+      };
+    });
+  } catch (error) {
+    console.error('Error fetching transactions:', error);
+    return [];
   }
 };
 
@@ -244,9 +374,13 @@ export const getResponsiblePersons = async (): Promise<ResponsiblePerson[]> => {
     const persons: ResponsiblePerson[] = [];
     
     querySnapshot.forEach((doc) => {
+      const data = doc.data();
       persons.push({
         id: doc.id,
-        data: doc.data() as ResponsiblePersonData
+        data: {
+          firstName: data.firstName || '',
+          lastName: data.lastName || ''
+        }
       });
     });
     
@@ -259,7 +393,12 @@ export const getResponsiblePersons = async (): Promise<ResponsiblePerson[]> => {
 
 export const createResponsiblePerson = async (personData: ResponsiblePersonData): Promise<ResponsiblePerson> => {
   try {
-    const docRef = await addDoc(collection(db, 'responsiblePersons'), personData);
+    const docData: any = {
+      firstName: personData.firstName,
+      lastName: personData.lastName
+    };
+    
+    const docRef = await addDoc(collection(db, 'responsiblePersons'), docData);
     return {
       id: docRef.id,
       data: personData
@@ -272,7 +411,11 @@ export const createResponsiblePerson = async (personData: ResponsiblePersonData)
 
 export const updateResponsiblePerson = async (id: string, personData: ResponsiblePersonData): Promise<void> => {
   try {
-    await updateDoc(doc(db, 'responsiblePersons', id), personData);
+    const docData: any = {
+      firstName: personData.firstName,
+      lastName: personData.lastName
+    };
+    await updateDoc(doc(db, 'responsiblePersons', id), docData);
   } catch (error) {
     console.error('Error updating responsible person:', error);
     throw error;
@@ -295,9 +438,13 @@ export const getTemplates = async (): Promise<Template[]> => {
     const templates: Template[] = [];
     
     querySnapshot.forEach((doc) => {
+      const data = doc.data();
       templates.push({
         id: doc.id,
-        data: doc.data() as TemplateData
+        data: {
+          theme: data.theme || '',
+          shelves: data.shelves || []
+        }
       });
     });
     
@@ -310,7 +457,12 @@ export const getTemplates = async (): Promise<Template[]> => {
 
 export const createTemplate = async (templateData: TemplateData): Promise<Template> => {
   try {
-    const docRef = await addDoc(collection(db, 'templates'), templateData);
+    const docData: any = {
+      theme: templateData.theme,
+      shelves: templateData.shelves
+    };
+    
+    const docRef = await addDoc(collection(db, 'templates'), docData);
     return {
       id: docRef.id,
       data: templateData
@@ -323,7 +475,11 @@ export const createTemplate = async (templateData: TemplateData): Promise<Templa
 
 export const updateTemplate = async (id: string, templateData: TemplateData): Promise<void> => {
   try {
-    await updateDoc(doc(db, 'templates', id), templateData);
+    const docData: any = {
+      theme: templateData.theme,
+      shelves: templateData.shelves
+    };
+    await updateDoc(doc(db, 'templates', id), docData);
   } catch (error) {
     console.error('Error updating template:', error);
     throw error;
@@ -335,6 +491,65 @@ export const deleteTemplate = async (id: string): Promise<void> => {
     await deleteDoc(doc(db, 'templates', id));
   } catch (error) {
     console.error('Error deleting template:', error);
+    throw error;
+  }
+};
+
+// Stand Services functions
+export const getStandServices = async (): Promise<StandService[]> => {
+  try {
+    const querySnapshot = await getDocs(collection(db, 'standServices'));
+    const services: StandService[] = [];
+    
+    querySnapshot.forEach((doc) => {
+      const data = doc.data();
+      services.push({
+        id: doc.id,
+        data: {
+          transactionId: data.transactionId || '',
+          responsiblePersonId: data.responsiblePersonId || '',
+          comment: data.comment,
+          servicedAt: data.servicedAt || new Date().toISOString()
+        }
+      });
+    });
+    
+    return services;
+  } catch (error) {
+    console.error('Error fetching stand services:', error);
+    return [];
+  }
+};
+
+export const createStandService = async (serviceData: {
+  transaction_id: string;
+  responsible_person_id: string;
+  comment?: string | null;
+}): Promise<StandService> => {
+  try {
+    const timestamp = new Date().toISOString();
+    const docData: any = {
+      transactionId: serviceData.transaction_id,
+      responsiblePersonId: serviceData.responsible_person_id,
+      servicedAt: timestamp
+    };
+    
+    if (serviceData.comment) {
+      docData.comment = serviceData.comment;
+    }
+    
+    const docRef = await addDoc(collection(db, 'standServices'), docData);
+    return {
+      id: docRef.id,
+      data: {
+        transactionId: serviceData.transaction_id,
+        responsiblePersonId: serviceData.responsible_person_id,
+        comment: serviceData.comment || undefined,
+        servicedAt: timestamp
+      }
+    };
+  } catch (error) {
+    console.error('Error creating stand service:', error);
     throw error;
   }
 };
@@ -357,7 +572,10 @@ export const getChecklistSettings = async () => {
     const docSnap = await getDoc(docRef);
     
     if (docSnap.exists()) {
-      return docSnap.data();
+      const data = docSnap.data();
+      return {
+        items: data.items || []
+      };
     } else {
       // Return default settings
       return {
