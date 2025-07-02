@@ -6,17 +6,25 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Edit, Trash2, Package, X } from 'lucide-react';
-import { Material, Template, TemplateData } from '@/types';
-import { getMaterials, getTemplates, createTemplate, updateTemplate, deleteTemplate } from '@/lib/firestore';
+import { Material, StandTemplate } from '@/types';
+import { getMaterials, getTemplates, createTemplate, updateTemplate, deleteTemplate, getTemplateShelves, updateTemplateShelves } from '@/lib/firestore';
+
+interface TemplateFormData {
+  theme: string;
+  shelves: Array<{
+    number: number;
+    materials: number[];
+  }>;
+}
 
 export function TemplatesTab() {
-  const [templates, setTemplates] = useState<Template[]>([]);
+  const [templates, setTemplates] = useState<StandTemplate[]>([]);
   const [materials, setMaterials] = useState<Material[]>([]);
-  const [templateMaterials, setTemplateMaterials] = useState<Map<string, Map<number, Material[]>>>(new Map());
+  const [templateMaterials, setTemplateMaterials] = useState<Map<number, Map<number, Material[]>>>(new Map());
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
+  const [editingTemplate, setEditingTemplate] = useState<StandTemplate | null>(null);
   const [loading, setLoading] = useState(true);
-  const [formData, setFormData] = useState<TemplateData>({
+  const [formData, setFormData] = useState<TemplateFormData>({
     theme: '',
     shelves: [
       { number: 1, materials: [] },
@@ -40,17 +48,19 @@ export function TemplatesTab() {
       setMaterials(materialsData);
       
       // Load materials for all templates
-      const templatesMap = new Map<string, Map<number, Material[]>>();
+      const templatesMap = new Map<number, Map<number, Material[]>>();
       
       for (const template of templatesData) {
         const templateMaterialsMap = new Map<number, Material[]>();
+        const shelves = await getTemplateShelves(template.id);
         
-        for (const shelf of template.data.shelves) {
-          const shelfMaterials = shelf.materials
-            .map(id => materialsData.find(m => m.id === id))
+        [1, 2, 3].forEach(shelfNumber => {
+          const shelfMaterials = shelves
+            .filter(shelf => shelf.shelf_number === shelfNumber)
+            .map(shelf => materialsData.find(m => m.id === shelf.material_id))
             .filter(Boolean) as Material[];
-          templateMaterialsMap.set(shelf.number, shelfMaterials);
-        }
+          templateMaterialsMap.set(shelfNumber, shelfMaterials);
+        });
         
         templatesMap.set(template.id, templateMaterialsMap);
       }
@@ -63,16 +73,26 @@ export function TemplatesTab() {
     }
   };
 
-  const handleEdit = (template: Template) => {
+  const handleEdit = async (template: StandTemplate) => {
     setEditingTemplate(template);
+    
+    // Load template shelves
+    const shelves = await getTemplateShelves(template.id);
+    const shelvesData = [1, 2, 3].map(shelfNumber => ({
+      number: shelfNumber,
+      materials: shelves
+        .filter(shelf => shelf.shelf_number === shelfNumber)
+        .map(shelf => shelf.material_id)
+    }));
+    
     setFormData({
-      theme: template.data.theme,
-      shelves: template.data.shelves
+      theme: template.theme,
+      shelves: shelvesData
     });
     setIsFormOpen(true);
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: number) => {
     if (!confirm('Вы уверены, что хотите удалить этот шаблон?')) {
       return;
     }
@@ -89,11 +109,22 @@ export function TemplatesTab() {
     e.preventDefault();
 
     try {
+      let templateId: number;
+      
       if (editingTemplate) {
-        await updateTemplate(editingTemplate.id, formData);
+        await updateTemplate(editingTemplate.id, { theme: formData.theme });
+        templateId = editingTemplate.id;
       } else {
-        await createTemplate(formData);
+        const newTemplate = await createTemplate({ theme: formData.theme });
+        templateId = newTemplate.id;
       }
+      
+      // Update template shelves
+      const shelves = formData.shelves.map(shelf => ({
+        shelf_number: shelf.number,
+        material_ids: shelf.materials
+      }));
+      await updateTemplateShelves(templateId, shelves);
       
       handleFormClose();
       fetchData();
@@ -116,7 +147,7 @@ export function TemplatesTab() {
     });
   };
 
-  const addMaterialToShelf = (shelfNumber: number, materialId: string) => {
+  const addMaterialToShelf = (shelfNumber: number, materialId: number) => {
     setFormData(prev => ({
       ...prev,
       shelves: prev.shelves.map(shelf => 
@@ -127,7 +158,7 @@ export function TemplatesTab() {
     }));
   };
 
-  const removeMaterialFromShelf = (shelfNumber: number, materialId: string) => {
+  const removeMaterialFromShelf = (shelfNumber: number, materialId: number) => {
     setFormData(prev => ({
       ...prev,
       shelves: prev.shelves.map(shelf => 
@@ -138,7 +169,7 @@ export function TemplatesTab() {
     }));
   };
 
-  const getMaterialById = (id: string) => {
+  const getMaterialById = (id: number) => {
     return materials.find(m => m.id === id);
   };
 
@@ -193,7 +224,7 @@ export function TemplatesTab() {
             return (
               <div key={template.id} className="border rounded-lg p-3 sm:p-4">
                 <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-4">
-                  <h4 className="text-lg font-medium">{template.data.theme}</h4>
+                  <h4 className="text-lg font-medium">{template.theme}</h4>
                   <div className="flex gap-2 w-full sm:w-auto">
                     <Button
                       size="sm"
@@ -226,15 +257,15 @@ export function TemplatesTab() {
                         <div className="space-y-2">
                           {shelfMaterials.map((material) => (
                             <div key={material.id} className="flex items-center gap-2">
-                              {material.data.imageUrl && (
+                              {material.image_url && (
                                 <img
-                                  src={material.data.imageUrl}
-                                  alt={material.data.name}
+                                  src={material.image_url}
+                                  alt={material.name}
                                   className="w-6 h-6 object-cover rounded cursor-pointer"
-                                  onClick={() => handleImageClick(material.data.imageUrl!)}
+                                  onClick={() => handleImageClick(material.image_url!)}
                                 />
                               )}
-                              <span className="text-sm flex-1 truncate">{material.data.name}</span>
+                              <span className="text-sm flex-1 truncate">{material.name}</span>
                             </div>
                           ))}
                           {shelfMaterials.length === 0 && (
@@ -280,7 +311,7 @@ export function TemplatesTab() {
                     <h4 className="font-medium mb-3">Полка {shelf.number}</h4>
                     
                     <div className="space-y-3">
-                      <Select onValueChange={(value) => addMaterialToShelf(shelf.number, value)}>
+                      <Select onValueChange={(value) => addMaterialToShelf(shelf.number, parseInt(value))}>
                         <SelectTrigger>
                           <SelectValue placeholder="Добавить материал" />
                         </SelectTrigger>
@@ -288,16 +319,16 @@ export function TemplatesTab() {
                           {materials
                             .filter(m => !shelf.materials.includes(m.id))
                             .map((material) => (
-                              <SelectItem key={material.id} value={material.id}>
+                              <SelectItem key={material.id} value={material.id.toString()}>
                                 <div className="flex items-center gap-2">
-                                  {material.data.imageUrl && (
+                                  {material.image_url && (
                                     <img
-                                      src={material.data.imageUrl}
-                                      alt={material.data.name}
+                                      src={material.image_url}
+                                      alt={material.name}
                                       className="w-4 h-4 object-cover rounded"
                                     />
                                   )}
-                                  <span>{material.data.name}</span>
+                                  <span>{material.name}</span>
                                 </div>
                               </SelectItem>
                             ))}
@@ -311,15 +342,15 @@ export function TemplatesTab() {
                           
                           return (
                             <div key={materialId} className="flex items-center gap-2 p-2 bg-muted rounded">
-                              {material.data.imageUrl && (
+                              {material.image_url && (
                                 <img
-                                  src={material.data.imageUrl}
-                                  alt={material.data.name}
+                                  src={material.image_url}
+                                  alt={material.name}
                                   className="w-6 h-6 object-cover rounded cursor-pointer"
-                                  onClick={() => handleImageClick(material.data.imageUrl!)}
+                                  onClick={() => handleImageClick(material.image_url!)}
                                 />
                               )}
-                              <span className="text-sm flex-1">{material.data.name}</span>
+                              <span className="text-sm flex-1">{material.name}</span>
                               <Button
                                 type="button"
                                 variant="ghost"

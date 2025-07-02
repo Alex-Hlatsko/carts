@@ -6,13 +6,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Plus, QrCode, Eye } from 'lucide-react';
 import { StandForm } from '@/components/StandForm';
-import { Stand, StandTemplate } from '@/lib/firestore';
-import { getStands, deleteStand, getTemplates, getTemplateById } from '@/lib/firestore';
+import { Stand, StandTemplate, StandWithTemplate } from '@/types';
+import { getStands, deleteStand, getTemplates } from '@/lib/firestore';
 import QRCodeLib from 'qrcode';
-
-interface StandWithTemplate extends Stand {
-  templateName?: string;
-}
 
 export function StandsPage() {
   const navigate = useNavigate();

@@ -8,7 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Stand, ChecklistItem, ResponsiblePerson } from '@/types';
-import { getChecklistSettings, getResponsiblePersons, createReport, updateStand } from '@/lib/firestore';
+import { getChecklistSettings, getResponsiblePersons, createTransaction, updateStand } from '@/lib/firestore';
 
 interface ReturnFormProps {
   isOpen: boolean;
@@ -58,15 +58,15 @@ export function ReturnForm({ isOpen, onClose, stand }: ReturnFormProps) {
 
     try {
       // Update stand status
-      await updateStand(stand.id, { status: 'В Зале Царства' });
+      await updateStand(stand.id, { status: 'available' });
       
       // Create transaction record
-      await createReport({
-        standId: stand.id,
-        action: 'receive',
-        handledBy: receivedBy,
-        checklist: checklistData,
-        comments: notes || undefined
+      await createTransaction({
+        stand_id: stand.id,
+        type: 'return',
+        received_by: receivedBy,
+        checklist_data: JSON.stringify(checklistData),
+        notes: notes || undefined
       });
 
       setReceivedBy('');
@@ -101,7 +101,7 @@ export function ReturnForm({ isOpen, onClose, stand }: ReturnFormProps) {
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            Прием стенда #{stand.data.number}
+            Прием стенда #{stand.number}
           </DialogTitle>
         </DialogHeader>
         
@@ -114,8 +114,8 @@ export function ReturnForm({ isOpen, onClose, stand }: ReturnFormProps) {
               </SelectTrigger>
               <SelectContent>
                 {responsiblePersons.map((person) => (
-                  <SelectItem key={person.id} value={`${person.data.firstName} ${person.data.lastName}`}>
-                    {person.data.firstName} {person.data.lastName}
+                  <SelectItem key={person.id} value={`${person.first_name} ${person.last_name}`}>
+                    {person.first_name} {person.last_name}
                   </SelectItem>
                 ))}
               </SelectContent>

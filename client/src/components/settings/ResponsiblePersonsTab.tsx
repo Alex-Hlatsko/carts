@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Plus, Edit, Trash2, Users } from 'lucide-react';
-import { ResponsiblePerson, ResponsiblePersonData } from '@/types';
+import { ResponsiblePerson } from '@/types';
 import { getResponsiblePersons, createResponsiblePerson, updateResponsiblePerson, deleteResponsiblePerson } from '@/lib/firestore';
 
 export function ResponsiblePersonsTab() {
@@ -13,9 +13,9 @@ export function ResponsiblePersonsTab() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingPerson, setEditingPerson] = useState<ResponsiblePerson | null>(null);
   const [loading, setLoading] = useState(true);
-  const [formData, setFormData] = useState<ResponsiblePersonData>({
-    firstName: '',
-    lastName: ''
+  const [formData, setFormData] = useState({
+    first_name: '',
+    last_name: ''
   });
 
   useEffect(() => {
@@ -36,13 +36,13 @@ export function ResponsiblePersonsTab() {
   const handleEdit = (person: ResponsiblePerson) => {
     setEditingPerson(person);
     setFormData({
-      firstName: person.data.firstName,
-      lastName: person.data.lastName
+      first_name: person.first_name,
+      last_name: person.last_name
     });
     setIsFormOpen(true);
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: number) => {
     if (!confirm('Вы уверены, что хотите удалить этого ответственного?')) {
       return;
     }
@@ -76,7 +76,7 @@ export function ResponsiblePersonsTab() {
   const handleFormClose = () => {
     setIsFormOpen(false);
     setEditingPerson(null);
-    setFormData({ firstName: '', lastName: '' });
+    setFormData({ first_name: '', last_name: '' });
   };
 
   if (loading) {
@@ -109,7 +109,7 @@ export function ResponsiblePersonsTab() {
             <div key={person.id} className="border rounded-lg p-3 sm:p-4">
               <div className="flex flex-col sm:flex-row justify-between items-start gap-3">
                 <div className="flex-1">
-                  <h4 className="font-medium">{person.data.firstName} {person.data.lastName}</h4>
+                  <h4 className="font-medium">{person.first_name} {person.last_name}</h4>
                 </div>
                 <div className="flex gap-2 w-full sm:w-auto">
                   <Button
@@ -151,8 +151,8 @@ export function ResponsiblePersonsTab() {
               <Input
                 id="firstName"
                 type="text"
-                value={formData.firstName}
-                onChange={(e) => setFormData(prev => ({ ...prev, firstName: e.target.value }))}
+                value={formData.first_name}
+                onChange={(e) => setFormData(prev => ({ ...prev, first_name: e.target.value }))}
                 placeholder="Имя"
                 required
               />
@@ -163,8 +163,8 @@ export function ResponsiblePersonsTab() {
               <Input
                 id="lastName"
                 type="text"
-                value={formData.lastName}
-                onChange={(e) => setFormData(prev => ({ ...prev, lastName: e.target.value }))}
+                value={formData.last_name}
+                onChange={(e) => setFormData(prev => ({ ...prev, last_name: e.target.value }))}
                 placeholder="Фамилия"
                 required
               />

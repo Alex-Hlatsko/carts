@@ -5,9 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ImageUpload } from '@/components/ImageUpload';
-import { Stand, Template, StandData, Material } from '@/types';
-import { getTemplates, createStand, updateStand, getStands, getMaterialsByIds } from '@/lib/firestore';
+import { Stand, StandTemplate, Material } from '@/types';
+import { getTemplates, createStand, updateStand, getStands, getTemplateShelves, getMaterialsByIds } from '@/lib/firestore';
 
 interface StandFormProps {
   isOpen: boolean;
@@ -16,18 +15,13 @@ interface StandFormProps {
 }
 
 export function StandForm({ isOpen, onClose, stand }: StandFormProps) {
-  const [formData, setFormData] = useState<Partial<StandData>>({
+  const [formData, setFormData] = useState<Partial<Stand>>({
     number: '',
-    theme: '',
-    shelves: [
-      { number: 1, materials: [] },
-      { number: 2, materials: [] },
-      { number: 3, materials: [] }
-    ],
-    status: 'В Зале Царства'
+    name: '',
+    status: 'available'
   });
-  const [templates, setTemplates] = useState<Template[]>([]);
-  const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
+  const [templates, setTemplates] = useState<StandTemplate[]>([]);
+  const [selectedTemplate, setSelectedTemplate] = useState<StandTemplate | null>(null);
   const [templateMaterials, setTemplateMaterials] = useState<Map<number, Material[]>>(new Map());
   const [loading, setLoading] = useState(false);
   const [numberError, setNumberError] = useState('');
@@ -50,24 +44,21 @@ export function StandForm({ isOpen, onClose, stand }: StandFormProps) {
   useEffect(() => {
     if (stand) {
       setFormData({
-        number: stand.data.number,
-        theme: stand.data.theme,
-        shelves: stand.data.shelves,
-        status: stand.data.status
+        number: stand.number,
+        name: stand.name,
+        status: stand.status,
+        template_id: stand.template_id
       });
       
-      // Load materials for the stand
-      loadMaterialsForShelves(stand.data.shelves);
+      // Load template materials if stand has a template
+      if (stand.template_id) {
+        loadTemplateData(stand.template_id);
+      }
     } else {
       setFormData({
         number: '',
-        theme: '',
-        shelves: [
-          { number: 1, materials: [] },
-          { number: 2, materials: [] },
-          { number: 3, materials: [] }
-        ],
-        status: 'В Зале Царства'
+        name: '',
+        status: 'available'
       });
       setTemplateMaterials(new Map());
     }
@@ -75,24 +66,33 @@ export function StandForm({ isOpen, onClose, stand }: StandFormProps) {
     setSelectedTemplate(null);
   }, [stand]);
 
-  const loadMaterialsForShelves = async (shelves: { number: number; materials: string[] }[]) => {
+  const loadTemplateData = async (templateId: number) => {
     try {
-      const allMaterialIds = shelves.flatMap(shelf => shelf.materials);
-      if (allMaterialIds.length > 0) {
-        const materials = await getMaterialsByIds(allMaterialIds);
+      const template = templates.find(t => t.id === templateId);
+      if (template) {
+        setSelectedTemplate(template);
+      }
+
+      const shelves = await getTemplateShelves(templateId);
+      const materialIds = shelves.map(shelf => shelf.material_id);
+      
+      if (materialIds.length > 0) {
+        const materials = await getMaterialsByIds(materialIds);
         const materialsMap = new Map<number, Material[]>();
         
-        shelves.forEach(shelf => {
-          const shelfMaterials = shelf.materials
-            .map(id => materials.find(m => m.id === id))
+        // Group materials by shelf number
+        [1, 2, 3].forEach(shelfNumber => {
+          const shelfMats = shelves
+            .filter(shelf => shelf.shelf_number === shelfNumber)
+            .map(shelf => materials.find(m => m.id === shelf.material_id))
             .filter(Boolean) as Material[];
-          materialsMap.set(shelf.number, shelfMaterials);
+          materialsMap.set(shelfNumber, shelfMats);
         });
         
         setTemplateMaterials(materialsMap);
       }
     } catch (error) {
-      console.error('Error loading materials:', error);
+      console.error('Error loading template data:', error);
     }
   };
 
@@ -101,28 +101,25 @@ export function StandForm({ isOpen, onClose, stand }: StandFormProps) {
       setSelectedTemplate(null);
       setFormData(prev => ({
         ...prev,
-        theme: '',
-        shelves: [
-          { number: 1, materials: [] },
-          { number: 2, materials: [] },
-          { number: 3, materials: [] }
-        ]
+        name: '',
+        template_id: undefined
       }));
       setTemplateMaterials(new Map());
       return;
     }
 
-    const template = templates.find(t => t.id === templateId);
+    const templateIdNum = parseInt(templateId);
+    const template = templates.find(t => t.id === templateIdNum);
     if (template) {
       setSelectedTemplate(template);
       setFormData(prev => ({
         ...prev,
-        theme: template.data.theme,
-        shelves: template.data.shelves
+        name: template.theme,
+        template_id: templateIdNum
       }));
       
       // Load materials for template
-      await loadMaterialsForShelves(template.data.shelves);
+      await loadTemplateData(templateIdNum);
     }
   };
 
@@ -133,9 +130,9 @@ export function StandForm({ isOpen, onClose, stand }: StandFormProps) {
 
     try {
       // Check for duplicate numbers
-      if (!stand || stand.data.number !== formData.number) {
+      if (!stand || stand.number !== formData.number) {
         const existingStands = await getStands();
-        const duplicateStand = existingStands.find(s => s.data.number === formData.number);
+        const duplicateStand = existingStands.find(s => s.number === formData.number);
         if (duplicateStand) {
           setNumberError('Стенд с таким номером уже существует');
           setLoading(false);
@@ -143,7 +140,10 @@ export function StandForm({ isOpen, onClose, stand }: StandFormProps) {
         }
       }
 
-      const standData = formData as StandData;
+      const standData = {
+        ...formData,
+        qr_code: stand?.qr_code || Math.random().toString(36).substring(2, 15)
+      } as Partial<Stand>;
 
       if (stand) {
         await updateStand(stand.id, standData);
@@ -160,7 +160,7 @@ export function StandForm({ isOpen, onClose, stand }: StandFormProps) {
     }
   };
 
-  const handleChange = (field: keyof StandData, value: any) => {
+  const handleChange = (field: keyof Stand, value: any) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
@@ -198,15 +198,15 @@ export function StandForm({ isOpen, onClose, stand }: StandFormProps) {
 
           <div>
             <Label htmlFor="template">Выбрать шаблон</Label>
-            <Select onValueChange={handleTemplateSelect}>
+            <Select onValueChange={handleTemplateSelect} value={formData.template_id?.toString() || ''}>
               <SelectTrigger>
                 <SelectValue placeholder="Выберите шаблон или создайте новый" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="">Создать новый стенд</SelectItem>
                 {templates.map((template) => (
-                  <SelectItem key={template.id} value={template.id}>
-                    {template.data.theme}
+                  <SelectItem key={template.id} value={template.id.toString()}>
+                    {template.theme}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -214,12 +214,12 @@ export function StandForm({ isOpen, onClose, stand }: StandFormProps) {
           </div>
           
           <div>
-            <Label htmlFor="theme">Тема стенда</Label>
+            <Label htmlFor="name">Название стенда</Label>
             <Input
-              id="theme"
+              id="name"
               type="text"
-              value={formData.theme || ''}
-              onChange={(e) => handleChange('theme', e.target.value)}
+              value={formData.name || ''}
+              onChange={(e) => handleChange('name', e.target.value)}
               placeholder="Например: Была ли жизнь сотворена?"
               required
             />
@@ -237,17 +237,17 @@ export function StandForm({ isOpen, onClose, stand }: StandFormProps) {
                       <div className="space-y-2">
                         {materials.map((material) => (
                           <div key={material.id} className="flex items-center gap-2">
-                            {material.data.imageUrl && (
+                            {material.image_url && (
                               <img
-                                src={material.data.imageUrl}
-                                alt={material.data.name}
+                                src={material.image_url}
+                                alt={material.name}
                                 className="w-6 h-6 object-cover rounded cursor-pointer"
                                 onClick={() => {
                                   const modal = document.createElement('div');
                                   modal.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4';
                                   modal.innerHTML = `
                                     <div class="relative">
-                                      <img src="${material.data.imageUrl}" class="max-w-full max-h-full rounded-lg" />
+                                      <img src="${material.image_url}" class="max-w-full max-h-full rounded-lg" />
                                       <button class="absolute top-2 right-2 bg-white rounded-full p-2 hover:bg-gray-100">
                                         <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                           <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -261,7 +261,7 @@ export function StandForm({ isOpen, onClose, stand }: StandFormProps) {
                                 }}
                               />
                             )}
-                            <span className="text-xs flex-1">{material.data.name}</span>
+                            <span className="text-xs flex-1">{material.name}</span>
                           </div>
                         ))}
                         {materials.length === 0 && (
@@ -279,15 +279,14 @@ export function StandForm({ isOpen, onClose, stand }: StandFormProps) {
             <Label htmlFor="status">Статус</Label>
             <Select 
               onValueChange={(value) => handleChange('status', value)}
-              value={formData.status || 'В Зале Царства'}
+              value={formData.status || 'available'}
             >
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="В Зале Царства">В Зале Царства</SelectItem>
-                <SelectItem value="Выдан">Выдан</SelectItem>
-                <SelectItem value="На обслуживании">На обслуживании</SelectItem>
+                <SelectItem value="available">Доступен</SelectItem>
+                <SelectItem value="issued">Выдан</SelectItem>
               </SelectContent>
             </Select>
           </div>
