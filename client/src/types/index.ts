@@ -58,7 +58,7 @@ export interface Transaction {
   notes?: string;
 }
 
-export interface ChecklistSettings {
+export interface ChecklistSettingsDB {
   id: number;
   items: string;
   created_at: string;
@@ -69,6 +69,10 @@ export interface ChecklistItem {
   id: string;
   label: string;
   required: boolean;
+}
+
+export interface ChecklistSettings {
+  items: ChecklistItem[];
 }
 
 export interface StandServiceData {

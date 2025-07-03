@@ -24,9 +24,7 @@ export function ChecklistSettingsPage() {
   const fetchSettings = async () => {
     try {
       const data = await getChecklistSettings();
-      if (data && data.items) {
-        setSettings(data as ChecklistSettings);
-      }
+      setSettings(data);
     } catch (error) {
       console.error('Error fetching checklist settings:', error);
     } finally {
