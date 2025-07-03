@@ -1,148 +1,76 @@
+// Mock implementation for SQLite - these functions should call API endpoints
 import { 
-  collection, 
-  doc, 
-  getDocs, 
-  getDoc, 
-  addDoc, 
-  updateDoc, 
-  deleteDoc, 
-  query, 
-  where, 
-  orderBy,
-  serverTimestamp,
-  Timestamp
-} from 'firebase/firestore';
-import { db } from '@/lib/firebase';
+  Material, 
+  Stand, 
+  StandTemplate, 
+  TemplateShelf,
+  ResponsiblePerson,
+  Transaction,
+  ChecklistSettings,
+  ChecklistItem
+} from '@/types';
 
-// Legacy compatibility types for Firestore structure
-export interface MaterialData {
-  name: string;
-  imageUrl?: string;
-}
+const API_BASE = '';
 
-export interface Material {
-  id: string;
-  data: MaterialData;
-}
-
-export interface ResponsiblePersonData {
-  firstName: string;
-  lastName: string;
-}
-
-export interface ResponsiblePerson {
-  id: string;
-  data: ResponsiblePersonData;
-}
-
-export interface Template {
-  id: string;
-  data: {
-    theme: string;
-    shelves: Array<{
-      number: number;
-      materials: string[];
-    }>;
-  };
-}
-
-export interface Stand {
-  id: string;
-  data: {
-    number: string;
-    name: string;
-    theme: string;
-    shelves: Array<{
-      number: number;
-      materials: string[];
-    }>;
-    status: string;
-    qrCode?: string;
-  };
-}
-
-export interface Transaction {
-  id: string;
-  data: {
-    standId: string;
-    type: string;
-    issuedTo?: string;
-    issuedBy?: string;
-    receivedBy?: string;
-    dateTime: Timestamp;
-    checklistData?: string;
-    notes?: string;
-  };
-}
-
-export interface ChecklistSettings {
-  items: Array<{
-    id: string;
-    label: string;
-    required: boolean;
-  }>;
+async function apiCall(endpoint: string, options?: RequestInit) {
+  const response = await fetch(`${API_BASE}${endpoint}`, {
+    headers: {
+      'Content-Type': 'application/json',
+      ...options?.headers,
+    },
+    ...options,
+  });
+  
+  if (!response.ok) {
+    throw new Error(`API call failed: ${response.statusText}`);
+  }
+  
+  return response.json();
 }
 
 // Materials functions
 export const getMaterials = async (): Promise<Material[]> => {
   try {
-    const materialsRef = collection(db, 'materials');
-    const snapshot = await getDocs(materialsRef);
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      data: doc.data() as MaterialData
-    }));
+    return await apiCall('/api/materials');
   } catch (error) {
     console.error('Error fetching materials:', error);
     return [];
   }
 };
 
-export const createMaterial = async (materialData: MaterialData): Promise<Material> => {
-  const materialsRef = collection(db, 'materials');
-  const docRef = await addDoc(materialsRef, materialData);
-  return {
-    id: docRef.id,
-    data: materialData
-  };
+export const createMaterial = async (materialData: { name: string; image_url?: string }): Promise<Material> => {
+  return await apiCall('/api/materials', {
+    method: 'POST',
+    body: JSON.stringify(materialData),
+  });
 };
 
-export const updateMaterial = async (id: string, materialData: MaterialData): Promise<void> => {
-  const materialRef = doc(db, 'materials', id);
-  await updateDoc(materialRef, materialData);
+export const updateMaterial = async (id: number, materialData: { name: string; image_url?: string }): Promise<void> => {
+  await apiCall(`/api/materials/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(materialData),
+  });
 };
 
-export const deleteMaterial = async (id: string): Promise<void> => {
-  const materialRef = doc(db, 'materials', id);
-  await deleteDoc(materialRef);
+export const deleteMaterial = async (id: number): Promise<void> => {
+  await apiCall(`/api/materials/${id}`, {
+    method: 'DELETE',
+  });
 };
 
 // Stands functions
 export const getStands = async (): Promise<Stand[]> => {
   try {
-    const standsRef = collection(db, 'stands');
-    const snapshot = await getDocs(standsRef);
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      data: doc.data() as Stand['data']
-    }));
+    return await apiCall('/api/stands');
   } catch (error) {
     console.error('Error fetching stands:', error);
     return [];
   }
 };
 
-export const getStandById = async (id: string): Promise<Stand | null> => {
+export const getStandById = async (id: number): Promise<Stand | null> => {
   try {
-    const standRef = doc(db, 'stands', id);
-    const snapshot = await getDoc(standRef);
-    if (snapshot.exists()) {
-      return {
-        id: snapshot.id,
-        data: snapshot.data() as Stand['data']
-      };
-    }
-    return null;
+    return await apiCall(`/api/stands/${id}`);
   } catch (error) {
     console.error('Error fetching stand by ID:', error);
     return null;
@@ -151,182 +79,156 @@ export const getStandById = async (id: string): Promise<Stand | null> => {
 
 export const getStandByQR = async (qrCode: string): Promise<Stand | null> => {
   try {
-    const standsRef = collection(db, 'stands');
-    const q = query(standsRef, where('qrCode', '==', qrCode));
-    const snapshot = await getDocs(q);
-    
-    if (!snapshot.empty) {
-      const doc = snapshot.docs[0];
-      return {
-        id: doc.id,
-        data: doc.data() as Stand['data']
-      };
-    }
-    return null;
+    return await apiCall(`/api/stands/qr/${encodeURIComponent(qrCode)}`);
   } catch (error) {
     console.error('Error fetching stand by QR:', error);
     return null;
   }
 };
 
-export const createStand = async (standData: Partial<Stand['data']>): Promise<Stand> => {
-  const standsRef = collection(db, 'stands');
-  const dataWithDefaults = {
-    ...standData,
-    status: standData.status || 'available',
-    qrCode: standData.qrCode || Math.random().toString(36).substring(2, 15),
-    shelves: standData.shelves || []
-  };
-  const docRef = await addDoc(standsRef, dataWithDefaults);
-  return {
-    id: docRef.id,
-    data: dataWithDefaults as Stand['data']
-  };
+export const createStand = async (standData: Partial<Stand>): Promise<Stand> => {
+  return await apiCall('/api/stands', {
+    method: 'POST',
+    body: JSON.stringify(standData),
+  });
 };
 
-export const updateStand = async (id: string, standData: Partial<Stand['data']>): Promise<void> => {
-  const standRef = doc(db, 'stands', id);
-  await updateDoc(standRef, standData);
+export const updateStand = async (id: number, standData: Partial<Stand>): Promise<void> => {
+  await apiCall(`/api/stands/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(standData),
+  });
 };
 
-export const deleteStand = async (id: string): Promise<void> => {
-  const standRef = doc(db, 'stands', id);
-  await deleteDoc(standRef);
+export const deleteStand = async (id: number): Promise<void> => {
+  await apiCall(`/api/stands/${id}`, {
+    method: 'DELETE',
+  });
 };
 
 // Templates functions
-export const getTemplates = async (): Promise<Template[]> => {
+export const getTemplates = async (): Promise<StandTemplate[]> => {
   try {
-    const templatesRef = collection(db, 'templates');
-    const snapshot = await getDocs(templatesRef);
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      data: doc.data() as Template['data']
-    }));
+    return await apiCall('/api/templates');
   } catch (error) {
     console.error('Error fetching templates:', error);
     return [];
   }
 };
 
-export const getTemplateById = async (id: string): Promise<Template | null> => {
+export const getTemplateById = async (id: number): Promise<StandTemplate | null> => {
   try {
-    const templateRef = doc(db, 'templates', id);
-    const snapshot = await getDoc(templateRef);
-    if (snapshot.exists()) {
-      return {
-        id: snapshot.id,
-        data: snapshot.data() as Template['data']
-      };
-    }
-    return null;
+    return await apiCall(`/api/templates/${id}`);
   } catch (error) {
     console.error('Error fetching template:', error);
     return null;
   }
 };
 
-export const createTemplate = async (templateData: Template['data']): Promise<Template> => {
-  const templatesRef = collection(db, 'templates');
-  const docRef = await addDoc(templatesRef, templateData);
-  return {
-    id: docRef.id,
-    data: templateData
-  };
+export const createTemplate = async (templateData: { theme: string }): Promise<StandTemplate> => {
+  return await apiCall('/api/templates', {
+    method: 'POST',
+    body: JSON.stringify(templateData),
+  });
 };
 
-export const updateTemplate = async (id: string, templateData: Template['data']): Promise<void> => {
-  const templateRef = doc(db, 'templates', id);
-  await updateDoc(templateRef, templateData);
+export const updateTemplate = async (id: number, templateData: { theme: string }): Promise<void> => {
+  await apiCall(`/api/templates/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(templateData),
+  });
 };
 
-export const deleteTemplate = async (id: string): Promise<void> => {
-  const templateRef = doc(db, 'templates', id);
-  await deleteDoc(templateRef);
+export const deleteTemplate = async (id: number): Promise<void> => {
+  await apiCall(`/api/templates/${id}`, {
+    method: 'DELETE',
+  });
+};
+
+// Template shelves functions
+export const getTemplateShelves = async (templateId: number): Promise<TemplateShelf[]> => {
+  try {
+    return await apiCall(`/api/templates/${templateId}/shelves`);
+  } catch (error) {
+    console.error('Error fetching template shelves:', error);
+    return [];
+  }
+};
+
+export const updateTemplateShelves = async (templateId: number, shelves: { shelf_number: number; material_ids: number[] }[]): Promise<void> => {
+  await apiCall(`/api/templates/${templateId}/shelves`, {
+    method: 'PUT',
+    body: JSON.stringify({ shelves }),
+  });
 };
 
 // Responsible persons functions
 export const getResponsiblePersons = async (): Promise<ResponsiblePerson[]> => {
   try {
-    const personsRef = collection(db, 'responsiblePersons');
-    const snapshot = await getDocs(personsRef);
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      data: doc.data() as ResponsiblePersonData
-    }));
+    return await apiCall('/api/responsible-persons');
   } catch (error) {
     console.error('Error fetching responsible persons:', error);
     return [];
   }
 };
 
-export const createResponsiblePerson = async (personData: ResponsiblePersonData): Promise<ResponsiblePerson> => {
-  const personsRef = collection(db, 'responsiblePersons');
-  const docRef = await addDoc(personsRef, personData);
-  return {
-    id: docRef.id,
-    data: personData
-  };
+export const createResponsiblePerson = async (personData: { first_name: string; last_name: string }): Promise<ResponsiblePerson> => {
+  return await apiCall('/api/responsible-persons', {
+    method: 'POST',
+    body: JSON.stringify(personData),
+  });
 };
 
-export const updateResponsiblePerson = async (id: string, personData: ResponsiblePersonData): Promise<void> => {
-  const personRef = doc(db, 'responsiblePersons', id);
-  await updateDoc(personRef, personData);
+export const updateResponsiblePerson = async (id: number, personData: { first_name: string; last_name: string }): Promise<void> => {
+  await apiCall(`/api/responsible-persons/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(personData),
+  });
 };
 
-export const deleteResponsiblePerson = async (id: string): Promise<void> => {
-  const personRef = doc(db, 'responsiblePersons', id);
-  await deleteDoc(personRef);
+export const deleteResponsiblePerson = async (id: number): Promise<void> => {
+  await apiCall(`/api/responsible-persons/${id}`, {
+    method: 'DELETE',
+  });
 };
 
 // Transactions functions
 export const getTransactions = async (): Promise<Transaction[]> => {
   try {
-    const transactionsRef = collection(db, 'transactions');
-    const q = query(transactionsRef, orderBy('data.dateTime', 'desc'));
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      data: doc.data() as Transaction['data']
-    }));
+    return await apiCall('/api/transactions');
   } catch (error) {
     console.error('Error fetching transactions:', error);
     return [];
   }
 };
 
-export const createTransaction = async (transactionData: Omit<Transaction['data'], 'dateTime'> & { dateTime?: Timestamp }): Promise<Transaction> => {
-  const transactionsRef = collection(db, 'transactions');
-  const dataWithTimestamp = {
-    ...transactionData,
-    dateTime: transactionData.dateTime || serverTimestamp()
-  };
-  const docRef = await addDoc(transactionsRef, dataWithTimestamp);
-  return {
-    id: docRef.id,
-    data: dataWithTimestamp as Transaction['data']
-  };
+export const createTransaction = async (transactionData: {
+  stand_id: number;
+  type: string;
+  issued_to?: string;
+  issued_by?: string;
+  received_by?: string;
+  checklist_data?: string;
+  notes?: string;
+}): Promise<Transaction> => {
+  return await apiCall('/api/transactions', {
+    method: 'POST',
+    body: JSON.stringify(transactionData),
+  });
 };
 
 // Checklist settings functions
-export const getChecklistSettings = async () => {
+export const getChecklistSettings = async (): Promise<ChecklistSettings> => {
   try {
-    const settingsRef = doc(db, 'settings', 'checklist');
-    const snapshot = await getDoc(settingsRef);
-    
-    if (snapshot.exists()) {
-      const data = snapshot.data();
-      return data.items ? { items: data.items } : getDefaultChecklistSettings();
-    }
-    
-    return getDefaultChecklistSettings();
+    const result = await apiCall('/api/checklist-settings');
+    return result || getDefaultChecklistSettings();
   } catch (error) {
     console.error('Error fetching checklist settings:', error);
     return getDefaultChecklistSettings();
   }
 };
 
-const getDefaultChecklistSettings = () => ({
+const getDefaultChecklistSettings = (): ChecklistSettings => ({
   items: [
     {
       id: 'poster_condition',
@@ -352,16 +254,16 @@ const getDefaultChecklistSettings = () => ({
 });
 
 export const updateChecklistSettings = async (settings: ChecklistSettings): Promise<void> => {
-  const settingsRef = doc(db, 'settings', 'checklist');
-  await updateDoc(settingsRef, settings).catch(async () => {
-    // If document doesn't exist, create it
-    await addDoc(collection(db, 'settings'), settings);
+  await apiCall('/api/checklist-settings', {
+    method: 'PUT',
+    body: JSON.stringify(settings),
   });
 };
 
 // Helper functions for compatibility
-export const getMaterialsByIds = async (materialIds: string[]): Promise<Material[]> => {
+export const getMaterialsByIds = async (materialIds: number[]): Promise<Material[]> => {
   try {
+    if (materialIds.length === 0) return [];
     const allMaterials = await getMaterials();
     return allMaterials.filter(material => materialIds.includes(material.id));
   } catch (error) {
@@ -373,40 +275,3 @@ export const getMaterialsByIds = async (materialIds: string[]): Promise<Material
 // Legacy compatibility functions
 export const createReport = createTransaction;
 export const getReports = getTransactions;
-
-// New adapter functions for template shelves compatibility
-export const getTemplateShelves = async (templateId: string) => {
-  const template = await getTemplateById(templateId);
-  if (!template) return [];
-  
-  // Convert template shelves to the expected format
-  const shelves: any[] = [];
-  template.data.shelves.forEach(shelf => {
-    shelf.materials.forEach(materialId => {
-      shelves.push({
-        id: `${templateId}_${shelf.number}_${materialId}`,
-        template_id: templateId,
-        shelf_number: shelf.number,
-        material_id: materialId
-      });
-    });
-  });
-  
-  return shelves;
-};
-
-export const updateTemplateShelves = async (templateId: string, shelves: { shelf_number: number; material_ids: string[] }[]): Promise<void> => {
-  const template = await getTemplateById(templateId);
-  if (!template) return;
-  
-  // Convert to template format
-  const templateShelves = shelves.map(shelf => ({
-    number: shelf.shelf_number,
-    materials: shelf.material_ids
-  }));
-  
-  await updateTemplate(templateId, {
-    ...template.data,
-    shelves: templateShelves
-  });
-};

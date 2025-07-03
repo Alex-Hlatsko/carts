@@ -15,7 +15,12 @@ interface StandFormProps {
 }
 
 export function StandForm({ isOpen, onClose, stand }: StandFormProps) {
-  const [formData, setFormData] = useState<Partial<Stand>>({
+  const [formData, setFormData] = useState<{
+    number: string;
+    name: string;
+    status: string;
+    template_id?: number;
+  }>({
     number: '',
     name: '',
     status: 'available'
@@ -141,9 +146,12 @@ export function StandForm({ isOpen, onClose, stand }: StandFormProps) {
       }
 
       const standData = {
-        ...formData,
+        number: formData.number,
+        name: formData.name,
+        status: formData.status,
+        template_id: formData.template_id,
         qr_code: stand?.qr_code || Math.random().toString(36).substring(2, 15)
-      } as Partial<Stand>;
+      };
 
       if (stand) {
         await updateStand(stand.id, standData);
@@ -160,7 +168,7 @@ export function StandForm({ isOpen, onClose, stand }: StandFormProps) {
     }
   };
 
-  const handleChange = (field: keyof Stand, value: any) => {
+  const handleChange = (field: string, value: any) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
@@ -186,7 +194,7 @@ export function StandForm({ isOpen, onClose, stand }: StandFormProps) {
             <Input
               id="number"
               type="text"
-              value={formData.number || ''}
+              value={formData.number}
               onChange={(e) => handleChange('number', e.target.value)}
               placeholder="Например: 001"
               required
@@ -218,7 +226,7 @@ export function StandForm({ isOpen, onClose, stand }: StandFormProps) {
             <Input
               id="name"
               type="text"
-              value={formData.name || ''}
+              value={formData.name}
               onChange={(e) => handleChange('name', e.target.value)}
               placeholder="Например: Была ли жизнь сотворена?"
               required
@@ -279,7 +287,7 @@ export function StandForm({ isOpen, onClose, stand }: StandFormProps) {
             <Label htmlFor="status">Статус</Label>
             <Select 
               onValueChange={(value) => handleChange('status', value)}
-              value={formData.status || 'available'}
+              value={formData.status}
             >
               <SelectTrigger>
                 <SelectValue />
