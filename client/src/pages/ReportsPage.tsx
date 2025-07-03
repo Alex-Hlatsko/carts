@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { FileText } from 'lucide-react';
-import { Transaction, Stand } from '@/lib/firestore';
+import { Transaction, Stand } from '@/types';
 import { getTransactions, getStands } from '@/lib/firestore';
 
 export function ReportsPage() {

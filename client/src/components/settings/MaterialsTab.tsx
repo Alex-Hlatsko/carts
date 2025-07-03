@@ -6,17 +6,22 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Plus, Edit, Trash2, Image } from 'lucide-react';
 import { ImageUpload } from '@/components/ImageUpload';
-import { Material, MaterialData } from '@/types';
+import { Material } from '@/types';
 import { getMaterials, createMaterial, updateMaterial, deleteMaterial } from '@/lib/firestore';
+
+interface MaterialFormData {
+  name: string;
+  image_url?: string;
+}
 
 export function MaterialsTab() {
   const [materials, setMaterials] = useState<Material[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingMaterial, setEditingMaterial] = useState<Material | null>(null);
   const [loading, setLoading] = useState(true);
-  const [formData, setFormData] = useState<MaterialData>({
+  const [formData, setFormData] = useState<MaterialFormData>({
     name: '',
-    imageUrl: undefined
+    image_url: undefined
   });
 
   useEffect(() => {
@@ -37,13 +42,13 @@ export function MaterialsTab() {
   const handleEdit = (material: Material) => {
     setEditingMaterial(material);
     setFormData({
-      name: material.data.name,
-      imageUrl: material.data.imageUrl
+      name: material.name,
+      image_url: material.image_url
     });
     setIsFormOpen(true);
   };
 
-  const handleDelete = async (id: string) => {
+  const handleDelete = async (id: number) => {
     if (!confirm('Вы уверены, что хотите удалить этот материал?')) {
       return;
     }
@@ -77,7 +82,7 @@ export function MaterialsTab() {
   const handleFormClose = () => {
     setIsFormOpen(false);
     setEditingMaterial(null);
-    setFormData({ name: '', imageUrl: undefined });
+    setFormData({ name: '', image_url: undefined });
   };
 
   const handleImageClick = (imageUrl: string) => {
@@ -128,16 +133,16 @@ export function MaterialsTab() {
           {materials.map((material) => (
             <div key={material.id} className="border rounded-lg p-3 sm:p-4">
               <div className="space-y-3">
-                {material.data.imageUrl && (
-                  <div className="cursor-pointer" onClick={() => handleImageClick(material.data.imageUrl!)}>
+                {material.image_url && (
+                  <div className="cursor-pointer" onClick={() => handleImageClick(material.image_url!)}>
                     <img
-                      src={material.data.imageUrl}
-                      alt={material.data.name}
+                      src={material.image_url}
+                      alt={material.name}
                       className="w-full h-32 object-cover rounded hover:opacity-80 transition-opacity"
                     />
                   </div>
                 )}
-                <h4 className="font-medium line-clamp-2">{material.data.name}</h4>
+                <h4 className="font-medium line-clamp-2">{material.name}</h4>
                 <div className="flex gap-2">
                   <Button
                     size="sm"
@@ -186,8 +191,8 @@ export function MaterialsTab() {
             </div>
             
             <ImageUpload
-              value={formData.imageUrl || null}
-              onChange={(imageUrl) => setFormData(prev => ({ ...prev, imageUrl: imageUrl || undefined }))}
+              value={formData.image_url || null}
+              onChange={(imageUrl) => setFormData(prev => ({ ...prev, image_url: imageUrl || undefined }))}
               label="Изображение материала"
             />
             
