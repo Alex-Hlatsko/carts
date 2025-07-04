@@ -101,30 +101,3 @@ export interface TemplateWithMaterials extends StandTemplate {
     [shelfNumber: number]: Material[];
   };
 }
-
-// Legacy compatibility types (for backwards compatibility)
-export interface MaterialLegacy {
-  id: string;
-  data: MaterialData;
-}
-
-export interface ResponsiblePersonLegacy {
-  id: string;
-  data: ResponsiblePersonData;
-}
-
-export interface TemplateLegacy {
-  id: string;
-  data: {
-    theme: string;
-    shelves: Array<{
-      number: number;
-      materials: string[];
-    }>;
-  };
-}
-
-export interface StandLegacy {
-  id: string;
-  data: StandData;
-}

@@ -17,12 +17,12 @@ interface StandFormProps {
 export function StandForm({ isOpen, onClose, stand }: StandFormProps) {
   const [formData, setFormData] = useState<{
     number: string;
-    name: string;
+    theme: string;
     status: string;
-    template_id?: number;
+    templateId?: string;
   }>({
     number: '',
-    name: '',
+    theme: '',
     status: 'available'
   });
   const [templates, setTemplates] = useState<StandTemplate[]>([]);
@@ -50,19 +50,16 @@ export function StandForm({ isOpen, onClose, stand }: StandFormProps) {
     if (stand) {
       setFormData({
         number: stand.number,
-        name: stand.name,
+        theme: stand.theme,
         status: stand.status,
-        template_id: stand.template_id
+        templateId: undefined
       });
       
-      // Load template materials if stand has a template
-      if (stand.template_id) {
-        loadTemplateData(stand.template_id);
-      }
+      setTemplateMaterials(new Map());
     } else {
       setFormData({
         number: '',
-        name: '',
+        theme: '',
         status: 'available'
       });
       setTemplateMaterials(new Map());
@@ -71,7 +68,7 @@ export function StandForm({ isOpen, onClose, stand }: StandFormProps) {
     setSelectedTemplate(null);
   }, [stand]);
 
-  const loadTemplateData = async (templateId: number) => {
+  const loadTemplateData = async (templateId: string) => {
     try {
       const template = templates.find(t => t.id === templateId);
       if (template) {
@@ -106,25 +103,24 @@ export function StandForm({ isOpen, onClose, stand }: StandFormProps) {
       setSelectedTemplate(null);
       setFormData(prev => ({
         ...prev,
-        name: '',
-        template_id: undefined
+        theme: '',
+        templateId: undefined
       }));
       setTemplateMaterials(new Map());
       return;
     }
 
-    const templateIdNum = parseInt(templateId);
-    const template = templates.find(t => t.id === templateIdNum);
+    const template = templates.find(t => t.id === templateId);
     if (template) {
       setSelectedTemplate(template);
       setFormData(prev => ({
         ...prev,
-        name: template.theme,
-        template_id: templateIdNum
+        theme: template.theme,
+        templateId: templateId
       }));
       
       // Load materials for template
-      await loadTemplateData(templateIdNum);
+      await loadTemplateData(templateId);
     }
   };
 
@@ -145,12 +141,18 @@ export function StandForm({ isOpen, onClose, stand }: StandFormProps) {
         }
       }
 
+      // Create shelves from template if selected
+      let shelves: Array<{ number: number; materials: string[] }> = [];
+      if (selectedTemplate) {
+        shelves = selectedTemplate.shelves || [];
+      }
+
       const standData = {
         number: formData.number,
-        name: formData.name,
+        theme: formData.theme,
+        shelves: shelves,
         status: formData.status,
-        template_id: formData.template_id,
-        qr_code: stand?.qr_code || Math.random().toString(36).substring(2, 15)
+        qrCode: stand?.qrCode || Math.random().toString(36).substring(2, 15)
       };
 
       if (stand) {
@@ -206,14 +208,14 @@ export function StandForm({ isOpen, onClose, stand }: StandFormProps) {
 
           <div>
             <Label htmlFor="template">Выбрать шаблон</Label>
-            <Select onValueChange={handleTemplateSelect} value={formData.template_id?.toString() || ''}>
+            <Select onValueChange={handleTemplateSelect} value={formData.templateId || ''}>
               <SelectTrigger>
                 <SelectValue placeholder="Выберите шаблон или создайте новый" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="">Создать новый стенд</SelectItem>
                 {templates.map((template) => (
-                  <SelectItem key={template.id} value={template.id.toString()}>
+                  <SelectItem key={template.id} value={template.id}>
                     {template.theme}
                   </SelectItem>
                 ))}
@@ -222,12 +224,12 @@ export function StandForm({ isOpen, onClose, stand }: StandFormProps) {
           </div>
           
           <div>
-            <Label htmlFor="name">Название стенда</Label>
+            <Label htmlFor="theme">Название стенда</Label>
             <Input
-              id="name"
+              id="theme"
               type="text"
-              value={formData.name}
-              onChange={(e) => handleChange('name', e.target.value)}
+              value={formData.theme}
+              onChange={(e) => handleChange('theme', e.target.value)}
               placeholder="Например: Была ли жизнь сотворена?"
               required
             />
@@ -245,9 +247,9 @@ export function StandForm({ isOpen, onClose, stand }: StandFormProps) {
                       <div className="space-y-2">
                         {materials.map((material) => (
                           <div key={material.id} className="flex items-center gap-2">
-                            {material.image_url && (
+                            {material.imageUrl && (
                               <img
-                                src={material.image_url}
+                                src={material.imageUrl}
                                 alt={material.name}
                                 className="w-6 h-6 object-cover rounded cursor-pointer"
                                 onClick={() => {
@@ -255,7 +257,7 @@ export function StandForm({ isOpen, onClose, stand }: StandFormProps) {
                                   modal.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4';
                                   modal.innerHTML = `
                                     <div class="relative">
-                                      <img src="${material.image_url}" class="max-w-full max-h-full rounded-lg" />
+                                      <img src="${material.imageUrl}" class="max-w-full max-h-full rounded-lg" />
                                       <button class="absolute top-2 right-2 bg-white rounded-full p-2 hover:bg-gray-100">
                                         <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                           <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -294,6 +296,7 @@ export function StandForm({ isOpen, onClose, stand }: StandFormProps) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="available">Доступен</SelectItem>
+                <SelectItem value="В Зале Царства">В Зале Царства</SelectItem>
                 <SelectItem value="issued">Выдан</SelectItem>
               </SelectContent>
             </Select>

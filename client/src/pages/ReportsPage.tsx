@@ -8,7 +8,7 @@ import { getTransactions, getStands } from '@/lib/firestore';
 
 export function ReportsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [stands, setStands] = useState<Map<number, Stand>>(new Map());
+  const [stands, setStands] = useState<Map<string, Stand>>(new Map());
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -25,7 +25,7 @@ export function ReportsPage() {
       setTransactions(transactionsData);
       
       // Create stands map for quick lookup
-      const standsMap = new Map<number, Stand>();
+      const standsMap = new Map<string, Stand>();
       standsData.forEach(stand => {
         standsMap.set(stand.id, stand);
       });
@@ -41,13 +41,16 @@ export function ReportsPage() {
     return new Date(dateString).toLocaleString('ru-RU');
   };
 
-  const parseChecklist = (checklistData: string | null | undefined) => {
+  const parseChecklist = (checklistData: any) => {
     if (!checklistData) return null;
-    try {
-      return JSON.parse(checklistData);
-    } catch {
-      return null;
+    if (typeof checklistData === 'string') {
+      try {
+        return JSON.parse(checklistData);
+      } catch {
+        return null;
+      }
     }
+    return checklistData;
   };
 
   if (loading) {
@@ -77,8 +80,8 @@ export function ReportsPage() {
       ) : (
         <div className="space-y-4">
           {transactions.map((transaction) => {
-            const stand = stands.get(transaction.stand_id);
-            const checklist = parseChecklist(transaction.checklist_data);
+            const stand = stands.get(transaction.standId);
+            const checklist = parseChecklist(transaction.checklist);
             
             return (
               <Card key={transaction.id}>
@@ -86,32 +89,38 @@ export function ReportsPage() {
                   <div className="flex flex-col sm:flex-row justify-between items-start gap-2">
                     <div>
                       <CardTitle className="text-lg">
-                        Стенд #{stand?.number || transaction.stand_id}
+                        Стенд #{stand?.number || transaction.standId}
                       </CardTitle>
                       <p className="text-sm text-muted-foreground">
-                        {stand?.name || 'Неизвестный стенд'}
+                        {stand?.theme || 'Неизвестный стенд'}
                       </p>
                     </div>
                     <div className="text-right">
-                      <Badge variant={transaction.type === 'issue' ? 'default' : 'secondary'}>
-                        {transaction.type === 'issue' ? 'Выдача' : 'Прием'}
+                      <Badge variant={transaction.action === 'issue' ? 'default' : 'secondary'}>
+                        {transaction.action === 'issue' ? 'Выдача' : 'Прием'}
                       </Badge>
                       <p className="text-sm text-muted-foreground mt-1">
-                        {formatDate(transaction.date_time)}
+                        {formatDate(transaction.timestamp)}
                       </p>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
-                    {transaction.type === 'issue' ? (
+                    {transaction.action === 'issue' ? (
                       <>
-                        <p><strong>Выдан:</strong> {transaction.issued_to}</p>
-                        <p><strong>Выдал:</strong> {transaction.issued_by}</p>
+                        {transaction.issuedTo && (
+                          <p><strong>Выдан:</strong> {transaction.issuedTo}</p>
+                        )}
+                        {transaction.handledBy && (
+                          <p><strong>Выдал:</strong> {transaction.handledBy}</p>
+                        )}
                       </>
                     ) : (
                       <>
-                        <p><strong>Принял:</strong> {transaction.received_by}</p>
+                        {transaction.handledBy && (
+                          <p><strong>Принял:</strong> {transaction.handledBy}</p>
+                        )}
                         
                         {checklist && (
                           <div className="mt-4">
@@ -141,11 +150,11 @@ export function ReportsPage() {
                           </div>
                         )}
                         
-                        {transaction.notes && (
+                        {transaction.comments && (
                           <div className="mt-4">
                             <h4 className="font-semibold mb-1">Дополнительные замечания:</h4>
                             <p className="text-sm bg-muted p-2 rounded">
-                              {transaction.notes}
+                              {transaction.comments}
                             </p>
                           </div>
                         )}

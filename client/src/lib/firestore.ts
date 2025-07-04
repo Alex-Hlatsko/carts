@@ -89,6 +89,7 @@ export const getStandById = async (id: string): Promise<Stand | null> => {
 
 export const getStandByQR = async (qrCode: string): Promise<Stand | null> => {
   try {
+    // First try to find by qrCode field
     const standsCollection = collection(db, 'stands');
     const q = query(standsCollection, where('data.qrCode', '==', qrCode));
     const snapshot = await getDocs(q);
@@ -100,7 +101,10 @@ export const getStandByQR = async (qrCode: string): Promise<Stand | null> => {
         ...doc.data().data
       } as Stand;
     }
-    return null;
+    
+    // If not found by qrCode, try to find by document ID (for backwards compatibility)
+    const standById = await getStandById(qrCode);
+    return standById;
   } catch (error) {
     console.error('Error fetching stand by QR:', error);
     return null;
@@ -177,7 +181,7 @@ export const createTransaction = async (transactionData: {
   } as Transaction;
 };
 
-// Responsible persons functions (simulated for Firebase)
+// Responsible persons functions
 export const getResponsiblePersons = async (): Promise<ResponsiblePerson[]> => {
   try {
     const personsCollection = collection(db, 'responsiblePersons');
@@ -211,7 +215,7 @@ export const deleteResponsiblePerson = async (id: string): Promise<void> => {
   await deleteDoc(personDoc);
 };
 
-// Templates functions (simulated for Firebase)
+// Templates functions
 export const getTemplates = async (): Promise<StandTemplate[]> => {
   try {
     const templatesCollection = collection(db, 'templates');

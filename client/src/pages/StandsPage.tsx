@@ -13,7 +13,7 @@ import QRCodeLib from 'qrcode';
 export function StandsPage() {
   const navigate = useNavigate();
   const [stands, setStands] = useState<StandWithTemplate[]>([]);
-  const [templates, setTemplates] = useState<Map<number, StandTemplate>>(new Map());
+  const [templates, setTemplates] = useState<Map<string, StandTemplate>>(new Map());
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingStand, setEditingStand] = useState<Stand | null>(null);
   const [loading, setLoading] = useState(true);
@@ -30,7 +30,7 @@ export function StandsPage() {
       ]);
       
       // Create templates map
-      const templatesMap = new Map<number, StandTemplate>();
+      const templatesMap = new Map<string, StandTemplate>();
       templatesData.forEach(template => {
         templatesMap.set(template.id, template);
       });
@@ -39,7 +39,7 @@ export function StandsPage() {
       // Add template names to stands
       const standsWithTemplates: StandWithTemplate[] = standsData.map(stand => ({
         ...stand,
-        templateName: stand.template_id ? templatesMap.get(stand.template_id)?.theme : undefined
+        templateName: stand.theme
       }));
       
       setStands(standsWithTemplates);
@@ -54,7 +54,7 @@ export function StandsPage() {
     navigate(`/stand-detail/${stand.id}`);
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: string) => {
     if (!confirm('Вы уверены, что хотите удалить этот стенд?')) {
       return;
     }
@@ -68,10 +68,10 @@ export function StandsPage() {
     }
   };
 
-  const handleDownloadQR = async (standId: number, standNumber: string) => {
+  const handleDownloadQR = async (standId: string, standNumber: string) => {
     try {
       // Use the stand ID as QR code content
-      const qrCodeDataURL = await QRCodeLib.toDataURL(standId.toString(), {
+      const qrCodeDataURL = await QRCodeLib.toDataURL(standId, {
         width: 200,
         margin: 2,
         color: {
@@ -139,10 +139,11 @@ export function StandsPage() {
                     </CardTitle>
                     <div className="text-center">
                       <Badge 
-                        variant={stand.status === 'available' ? 'default' : 'secondary'}
+                        variant={stand.status === 'available' || stand.status === 'В Зале Царства' ? 'default' : 'secondary'}
                         className="text-xs"
                       >
-                        {stand.status === 'available' ? 'Доступен' : 'Выдан'}
+                        {stand.status === 'available' ? 'Доступен' : 
+                         stand.status === 'В Зале Царства' ? 'В Зале Царства' : 'Выдан'}
                       </Badge>
                     </div>
                   </div>

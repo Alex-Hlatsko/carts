@@ -9,8 +9,8 @@ import { ResponsiblePerson } from '@/types';
 import { getResponsiblePersons, createResponsiblePerson, updateResponsiblePerson, deleteResponsiblePerson } from '@/lib/firestore';
 
 interface ResponsiblePersonFormData {
-  first_name: string;
-  last_name: string;
+  firstName: string;
+  lastName: string;
 }
 
 export function ResponsiblePersonsTab() {
@@ -19,8 +19,8 @@ export function ResponsiblePersonsTab() {
   const [editingPerson, setEditingPerson] = useState<ResponsiblePerson | null>(null);
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState<ResponsiblePersonFormData>({
-    first_name: '',
-    last_name: ''
+    firstName: '',
+    lastName: ''
   });
 
   useEffect(() => {
@@ -41,13 +41,13 @@ export function ResponsiblePersonsTab() {
   const handleEdit = (person: ResponsiblePerson) => {
     setEditingPerson(person);
     setFormData({
-      first_name: person.first_name,
-      last_name: person.last_name
+      firstName: person.firstName,
+      lastName: person.lastName
     });
     setIsFormOpen(true);
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: string) => {
     if (!confirm('Вы уверены, что хотите удалить этого ответственного?')) {
       return;
     }
@@ -81,7 +81,7 @@ export function ResponsiblePersonsTab() {
   const handleFormClose = () => {
     setIsFormOpen(false);
     setEditingPerson(null);
-    setFormData({ first_name: '', last_name: '' });
+    setFormData({ firstName: '', lastName: '' });
   };
 
   if (loading) {
@@ -114,7 +114,7 @@ export function ResponsiblePersonsTab() {
             <div key={person.id} className="border rounded-lg p-3 sm:p-4">
               <div className="flex flex-col sm:flex-row justify-between items-start gap-3">
                 <div className="flex-1">
-                  <h4 className="font-medium">{person.first_name} {person.last_name}</h4>
+                  <h4 className="font-medium">{person.firstName} {person.lastName}</h4>
                 </div>
                 <div className="flex gap-2 w-full sm:w-auto">
                   <Button
@@ -156,8 +156,8 @@ export function ResponsiblePersonsTab() {
               <Input
                 id="firstName"
                 type="text"
-                value={formData.first_name}
-                onChange={(e) => setFormData(prev => ({ ...prev, first_name: e.target.value }))}
+                value={formData.firstName}
+                onChange={(e) => setFormData(prev => ({ ...prev, firstName: e.target.value }))}
                 placeholder="Имя"
                 required
               />
@@ -168,8 +168,8 @@ export function ResponsiblePersonsTab() {
               <Input
                 id="lastName"
                 type="text"
-                value={formData.last_name}
-                onChange={(e) => setFormData(prev => ({ ...prev, last_name: e.target.value }))}
+                value={formData.lastName}
+                onChange={(e) => setFormData(prev => ({ ...prev, lastName: e.target.value }))}
                 placeholder="Фамилия"
                 required
               />

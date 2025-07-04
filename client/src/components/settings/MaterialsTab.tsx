@@ -11,7 +11,7 @@ import { getMaterials, createMaterial, updateMaterial, deleteMaterial } from '@/
 
 interface MaterialFormData {
   name: string;
-  image_url?: string;
+  imageUrl?: string;
 }
 
 export function MaterialsTab() {
@@ -21,7 +21,7 @@ export function MaterialsTab() {
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState<MaterialFormData>({
     name: '',
-    image_url: undefined
+    imageUrl: undefined
   });
 
   useEffect(() => {
@@ -43,12 +43,12 @@ export function MaterialsTab() {
     setEditingMaterial(material);
     setFormData({
       name: material.name,
-      image_url: material.image_url
+      imageUrl: material.imageUrl
     });
     setIsFormOpen(true);
   };
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: string) => {
     if (!confirm('Вы уверены, что хотите удалить этот материал?')) {
       return;
     }
@@ -82,7 +82,7 @@ export function MaterialsTab() {
   const handleFormClose = () => {
     setIsFormOpen(false);
     setEditingMaterial(null);
-    setFormData({ name: '', image_url: undefined });
+    setFormData({ name: '', imageUrl: undefined });
   };
 
   const handleImageClick = (imageUrl: string) => {
@@ -133,10 +133,10 @@ export function MaterialsTab() {
           {materials.map((material) => (
             <div key={material.id} className="border rounded-lg p-3 sm:p-4">
               <div className="space-y-3">
-                {material.image_url && (
-                  <div className="cursor-pointer" onClick={() => handleImageClick(material.image_url!)}>
+                {material.imageUrl && (
+                  <div className="cursor-pointer" onClick={() => handleImageClick(material.imageUrl!)}>
                     <img
-                      src={material.image_url}
+                      src={material.imageUrl}
                       alt={material.name}
                       className="w-full h-32 object-cover rounded hover:opacity-80 transition-opacity"
                     />
@@ -191,8 +191,8 @@ export function MaterialsTab() {
             </div>
             
             <ImageUpload
-              value={formData.image_url || null}
-              onChange={(imageUrl) => setFormData(prev => ({ ...prev, image_url: imageUrl || undefined }))}
+              value={formData.imageUrl || null}
+              onChange={(imageUrl) => setFormData(prev => ({ ...prev, imageUrl: imageUrl || undefined }))}
               label="Изображение материала"
             />
             
