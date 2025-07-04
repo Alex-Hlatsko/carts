@@ -1,131 +1,103 @@
 import * as React from 'react';
-import { useRef, useState } from 'react';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { X, Image } from 'lucide-react';
-import { storage } from '@/lib/firebase';
+import { Card, CardContent } from '@/components/ui/card';
+import { Upload, X, Image as ImageIcon } from 'lucide-react';
 
 interface ImageUploadProps {
-  value?: string | null;
-  onChange: (imageUrl: string | null) => void;
-  label?: string;
+  onImageSelect: (file: File) => void;
+  currentImageUrl?: string;
+  className?: string;
 }
 
-export function ImageUpload({ value, onChange, label = "Изображение" }: ImageUploadProps) {
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isLoading, setIsLoading] = useState(false);
+export function ImageUpload({ onImageSelect, currentImageUrl, className }: ImageUploadProps) {
+  const [preview, setPreview] = useState<string | null>(currentImageUrl || null);
 
-  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        alert('Пожалуйста, выберите файл изображения');
+        return;
+      }
 
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      alert('Пожалуйста, выберите изображение');
-      return;
-    }
+      // Validate file size (max 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        alert('Размер файла не должен превышать 10MB');
+        return;
+      }
 
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      alert('Размер файла не должен превышать 5MB');
-      return;
-    }
-
-    setIsLoading(true);
-    
-    try {
-      // Create a reference to the file in Firebase Storage
-      const timestamp = Date.now();
-      const fileName = `images/${timestamp}-${file.name}`;
-      const storageRef = ref(storage, fileName);
-
-      // Upload the file
-      await uploadBytes(storageRef, file);
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        setPreview(e.target?.result as string);
+      };
+      reader.readAsDataURL(file);
       
-      // Get the download URL
-      const downloadURL = await getDownloadURL(storageRef);
-      
-      onChange(downloadURL);
-    } catch (error) {
-      console.error('Error uploading image:', error);
-      alert('Ошибка при загрузке изображения');
-    } finally {
-      setIsLoading(false);
+      onImageSelect(file);
     }
   };
 
-  const handleUploadClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleRemove = () => {
-    onChange(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
+  const clearImage = () => {
+    setPreview(null);
+    // Reset the input
+    const input = document.getElementById('image-upload') as HTMLInputElement;
+    if (input) input.value = '';
   };
 
   return (
-    <div className="space-y-2">
-      <Label>{label}</Label>
-      
-      {value ? (
-        <div className="relative inline-block">
-          <img
-            src={value}
-            alt="Uploaded"
-            className="w-32 h-32 object-cover rounded-lg border"
-          />
-          <Button
-            type="button"
-            variant="destructive"
-            size="sm"
-            className="absolute -top-2 -right-2 w-6 h-6 p-0"
-            onClick={handleRemove}
-          >
-            <X className="w-3 h-3" />
-          </Button>
-        </div>
-      ) : (
-        <div
-          className="w-32 h-32 border-2 border-dashed border-muted-foreground/25 rounded-lg flex items-center justify-center cursor-pointer hover:border-muted-foreground/50 transition-colors"
-          onClick={handleUploadClick}
-        >
-          {isLoading ? (
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary mx-auto mb-2"></div>
-              <span className="text-xs">Загрузка...</span>
+    <Card className={className}>
+      <CardContent className="p-4">
+        {preview ? (
+          <div className="relative">
+            <img 
+              src={preview} 
+              alt="Preview" 
+              className="w-full max-w-xs mx-auto rounded-lg h-80 object-cover border-2 border-border"
+            />
+            <Button
+              variant="destructive"
+              size="icon"
+              className="absolute top-2 right-2"
+              onClick={clearImage}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+            <div className="mt-2 text-center">
+              <p className="text-xs text-muted-foreground">
+                Изображение будет автоматически оптимизировано для загрузки
+              </p>
             </div>
-          ) : (
-            <div className="text-center">
-              <Image className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-              <span className="text-xs text-muted-foreground">Добавить фото</span>
-            </div>
-          )}
-        </div>
-      )}
-
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/*"
-        onChange={handleFileSelect}
-        className="hidden"
-      />
-      
-      {!value && (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={handleUploadClick}
-          disabled={isLoading}
-        >
-          <Image className="w-4 h-4 mr-2" />
-          Выбрать файл
-        </Button>
-      )}
-    </div>
+          </div>
+        ) : (
+          <div className="border-2 border-dashed border-border rounded-lg p-6 text-center">
+            <ImageIcon className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+            <p className="text-sm text-muted-foreground mb-2">
+              Выберите изображение стенда
+            </p>
+            <p className="text-xs text-muted-foreground mb-4">
+              Рекомендуется вертикальное изображение (как башня)<br/>
+              Максимальный размер: 10MB
+            </p>
+            <label htmlFor="image-upload">
+              <Button asChild>
+                <span>
+                  <Upload className="h-4 w-4 mr-2" />
+                  Выбрать файл
+                </span>
+              </Button>
+            </label>
+            <input
+              id="image-upload"
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleFileSelect}
+            />
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

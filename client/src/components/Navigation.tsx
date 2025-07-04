@@ -1,86 +1,48 @@
 import * as React from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Home, Package, Scan, FileText, Settings } from 'lucide-react';
+import { Home, Plus, List, FileText, QrCode, BookOpen } from 'lucide-react';
 
 export function Navigation() {
+  const navigate = useNavigate();
   const location = useLocation();
 
-  const isActive = (path: string) => {
-    return location.pathname === path;
-  };
+  const navItems = [
+    { path: '/', icon: Home, label: 'Главная' },
+    { path: '/add-stand', icon: Plus, label: 'Добавить' },
+    { path: '/stands', icon: List, label: 'Стенды' },
+    { path: '/materials', icon: BookOpen, label: 'Материалы' },
+    { path: '/reports', icon: FileText, label: 'Отчёты' },
+  ];
 
   return (
-    <nav className="border-b bg-card">
-      <div className="container mx-auto px-2 sm:px-4">
-        <div className="flex items-center justify-between h-14 sm:h-16">
-          <Link to="/" className="font-bold text-lg sm:text-xl truncate">
-            Учет стендов
-          </Link>
-          
-          <div className="flex gap-1 sm:gap-2">
-            <Button
-              asChild
-              variant={isActive('/') ? 'default' : 'ghost'}
-              size="sm"
-              className="px-2 sm:px-3"
-            >
-              <Link to="/">
-                <Home className="w-4 h-4 sm:mr-2" />
-                <span className="hidden sm:inline">Главная</span>
-              </Link>
-            </Button>
-            
-            <Button
-              asChild
-              variant={isActive('/scan') ? 'default' : 'ghost'}
-              size="sm"
-              className="px-2 sm:px-3"
-            >
-              <Link to="/scan">
-                <Scan className="w-4 h-4 sm:mr-2" />
-                <span className="hidden sm:inline">Сканер</span>
-              </Link>
-            </Button>
-            
-            <Button
-              asChild
-              variant={isActive('/stands') ? 'default' : 'ghost'}
-              size="sm"
-              className="px-2 sm:px-3"
-            >
-              <Link to="/stands">
-                <Package className="w-4 h-4 sm:mr-2" />
-                <span className="hidden sm:inline">Стенды</span>
-              </Link>
-            </Button>
-            
-            <Button
-              asChild
-              variant={isActive('/reports') ? 'default' : 'ghost'}
-              size="sm"
-              className="px-2 sm:px-3"
-            >
-              <Link to="/reports">
-                <FileText className="w-4 h-4 sm:mr-2" />
-                <span className="hidden sm:inline">Отчеты</span>
-              </Link>
-            </Button>
-
-            <Button
-              asChild
-              variant={isActive('/settings') ? 'default' : 'ghost'}
-              size="sm"
-              className="px-2 sm:px-3"
-            >
-              <Link to="/settings">
-                <Settings className="w-4 h-4 sm:mr-2" />
-                <span className="hidden sm:inline">Настройки</span>
-              </Link>
-            </Button>
+    <div className="bg-card border-b border-border">
+      <div className="max-w-7xl mx-auto px-4">
+        <div className="flex items-center justify-between h-16">
+          <div className="flex items-center space-x-2">
+            <QrCode className="h-8 w-8 text-primary" />
+            <h1 className="text-xl font-bold">Учёт стендов</h1>
           </div>
+          
+          <nav className="flex space-x-1">
+            {navItems.map((item) => {
+              const isActive = location.pathname === item.path;
+              return (
+                <Button
+                  key={item.path}
+                  variant={isActive ? "default" : "ghost"}
+                  size="sm"
+                  onClick={() => navigate(item.path)}
+                  className="flex items-center gap-2"
+                >
+                  <item.icon className="h-4 w-4" />
+                  <span className="hidden sm:inline">{item.label}</span>
+                </Button>
+              );
+            })}
+          </nav>
         </div>
       </div>
-    </nav>
+    </div>
   );
 }

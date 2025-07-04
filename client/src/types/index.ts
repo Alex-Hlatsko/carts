@@ -1,59 +1,58 @@
-// Firebase Firestore types
 export interface Material {
   id: string;
   name: string;
-  imageUrl?: string;
+  imageUrl: string;
+  dateAdded: Date;
+}
+
+export interface Shelf {
+  id: string;
+  number: 1 | 2 | 3;
+  materials: string[]; // Array of material IDs (can have duplicates)
 }
 
 export interface Stand {
   id: string;
   number: string;
   theme: string;
-  shelves: Array<{
-    number: number;
-    materials: string[];
-  }>;
-  status: string;
-  qrCode?: string;
-}
-
-export interface StandTemplate {
-  id: string;
-  theme: string;
-  shelves: Array<{
-    number: number;
-    materials: string[];
-  }>;
-}
-
-export interface ResponsiblePerson {
-  id: string;
-  firstName: string;
-  lastName: string;
-}
-
-export interface Transaction {
-  id: string;
-  standId: string;
-  action: string;
-  handledBy?: string;
-  issuedTo?: string;
-  comments?: string;
-  checklist?: any;
-  timestamp: string;
+  shelves: Shelf[];
+  status: string; // "В Зале Царства" or person name
+  dateAdded: Date;
 }
 
 export interface ChecklistItem {
   id: string;
-  label: string;
+  question: string;
+  type: 'boolean' | 'text' | 'rating';
   required: boolean;
+  options?: string[];
 }
 
-export interface ChecklistSettings {
+export interface Report {
+  id: string;
+  standId: string;
+  standName: string;
+  action: 'receive' | 'issue';
+  handledBy: string;
+  handledTo?: string;
+  timestamp: Date;
+  comments: string;
+  checklist?: Record<string, any>; // Only for receive action
+  imageUrls?: string[];
+}
+
+export interface ChecklistConfig {
+  id: string;
+  name: string;
   items: ChecklistItem[];
+  dateModified: Date;
 }
 
-// Extended types for UI
-export interface StandWithTemplate extends Stand {
-  templateName?: string;
+export interface FirebaseConfig {
+  apiKey: string;
+  authDomain: string;
+  projectId: string;
+  storageBucket: string;
+  messagingSenderId: string;
+  appId: string;
 }

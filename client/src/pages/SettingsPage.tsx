@@ -1,88 +1,160 @@
 import * as React from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, Package, FileText, Users } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { MaterialsTab } from '@/components/settings/MaterialsTab';
-import { TemplatesTab } from '@/components/settings/TemplatesTab';
-import { ResponsiblePersonsTab } from '@/components/settings/ResponsiblePersonsTab';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ChecklistEditor } from '@/components/ChecklistEditor';
+import { FirebaseConfig } from '@/components/FirebaseConfig';
+import { useCollection } from '@/hooks/useFirestore';
+import { ChecklistConfig, ChecklistItem } from '@/types';
+import { Save, RotateCcw } from 'lucide-react';
 
 export function SettingsPage() {
-  const navigate = useNavigate();
+  const { data: checklistConfigs, addDocument, updateDocument, error } = useCollection<ChecklistConfig>('checklists');
+  const [currentConfig, setCurrentConfig] = useState<ChecklistConfig | null>(null);
+  const [hasChanges, setHasChanges] = useState(false);
+
+  useEffect(() => {
+    const defaultConfig = checklistConfigs.find(config => config.name === 'default');
+    if (defaultConfig) {
+      setCurrentConfig(defaultConfig);
+    } else {
+      // Create default config if it doesn't exist
+      const newConfig: ChecklistConfig = {
+        id: 'default',
+        name: 'default',
+        items: [
+          {
+            id: '1',
+            question: 'Стенд в хорошем состоянии?',
+            type: 'boolean',
+            required: true,
+          },
+          {
+            id: '2',
+            question: 'Все материалы на месте?',
+            type: 'boolean',
+            required: true,
+          },
+          {
+            id: '3',
+            question: 'Дополнительные комментарии',
+            type: 'text',
+            required: false,
+          },
+        ],
+        dateModified: new Date(),
+      };
+      setCurrentConfig(newConfig);
+    }
+  }, [checklistConfigs]);
+
+  const handleChecklistChange = (items: ChecklistItem[]) => {
+    if (currentConfig) {
+      setCurrentConfig({
+        ...currentConfig,
+        items,
+        dateModified: new Date(),
+      });
+      setHasChanges(true);
+    }
+  };
+
+  const saveConfig = async () => {
+    if (!currentConfig) return;
+
+    try {
+      const existingConfig = checklistConfigs.find(config => config.name === 'default');
+      
+      if (existingConfig) {
+        await updateDocument(existingConfig.id, currentConfig);
+      } else {
+        await addDocument(currentConfig);
+      }
+      
+      setHasChanges(false);
+      alert('Чек-лист успешно сохранён!');
+    } catch (error) {
+      console.error('Error saving checklist config:', error);
+      alert('Ошибка при сохранении чек-листа');
+    }
+  };
+
+  const resetToDefault = () => {
+    const defaultItems: ChecklistItem[] = [
+      {
+        id: '1',
+        question: 'Стенд в хорошем состоянии?',
+        type: 'boolean',
+        required: true,
+      },
+      {
+        id: '2',
+        question: 'Все материалы на месте?',
+        type: 'boolean',
+        required: true,
+      },
+      {
+        id: '3',
+        question: 'Дополнительные комментарии',
+        type: 'text',
+        required: false,
+      },
+    ];
+
+    if (currentConfig) {
+      setCurrentConfig({
+        ...currentConfig,
+        items: defaultItems,
+        dateModified: new Date(),
+      });
+      setHasChanges(true);
+    }
+  };
 
   return (
-    <div className="space-y-4 sm:space-y-6">
-      <div className="flex items-center gap-4">
-        <Button 
-          variant="ghost" 
-          onClick={() => navigate('/')}
-          size="sm"
-        >
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Назад
-        </Button>
-        <h1 className="text-2xl sm:text-3xl font-bold">Настройки</h1>
+    <div className="min-h-screen bg-background p-4">
+      <div className="max-w-4xl mx-auto">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold">Настройки</h1>
+        </div>
+
+        <div className="space-y-6">
+          <FirebaseConfig />
+
+          {!error && (
+            <Card>
+              <CardHeader>
+                <div className="flex justify-between items-center">
+                  <CardTitle>Редактирование чек-листа</CardTitle>
+                  <div className="flex gap-2">
+                    <Button variant="outline" onClick={resetToDefault}>
+                      <RotateCcw className="h-4 w-4 mr-2" />
+                      Сбросить
+                    </Button>
+                    <Button onClick={saveConfig} disabled={!hasChanges}>
+                      <Save className="h-4 w-4 mr-2" />
+                      Сохранить
+                    </Button>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {currentConfig ? (
+                  <ChecklistEditor
+                    items={currentConfig.items}
+                    onChange={handleChecklistChange}
+                  />
+                ) : (
+                  <div className="text-center py-8">
+                    <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary mx-auto"></div>
+                    <p className="mt-4 text-muted-foreground">Загрузка конфигурации...</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </div>
       </div>
-
-      <Tabs defaultValue="templates" className="space-y-4 sm:space-y-6">
-        <TabsList className="grid w-full grid-cols-3 h-auto">
-          <TabsTrigger value="templates" className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 py-2">
-            <Package className="w-4 h-4" />
-            <span className="text-xs sm:text-sm">Шаблоны</span>
-          </TabsTrigger>
-          <TabsTrigger value="materials" className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 py-2">
-            <FileText className="w-4 h-4" />
-            <span className="text-xs sm:text-sm">Материалы</span>
-          </TabsTrigger>
-          <TabsTrigger value="responsible" className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 py-2">
-            <Users className="w-4 h-4" />
-            <span className="text-xs sm:text-sm">Ответственные</span>
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="templates" className="space-y-4 sm:space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Шаблоны стендов</CardTitle>
-              <CardDescription>
-                Создавайте и редактируйте шаблоны стендов с материалами для полок
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <TemplatesTab />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="materials" className="space-y-4 sm:space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Материалы</CardTitle>
-              <CardDescription>
-                Управляйте библиотекой материалов для размещения на стендах
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <MaterialsTab />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="responsible" className="space-y-4 sm:space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle>Ответственные лица</CardTitle>
-              <CardDescription>
-                Добавляйте и управляйте списком ответственных лиц
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ResponsiblePersonsTab />
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
     </div>
   );
 }
