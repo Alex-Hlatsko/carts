@@ -4,8 +4,15 @@ import App from './App';
 
 import './index.css';
 
-// Force dark mode
-document.documentElement.classList.add('dark');
+const darkQuery = window.matchMedia('(prefers-color-scheme: dark)');
+
+function updateDarkClass(e = null) {
+  const isDark = e ? e.matches : darkQuery.matches;
+  document.documentElement.classList.toggle('dark', isDark);
+}
+
+updateDarkClass();
+darkQuery.addEventListener('change', updateDarkClass);
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
