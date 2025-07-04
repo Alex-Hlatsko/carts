@@ -4,37 +4,27 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Label } from '@/components/ui/label';
-import { ArrowLeft, Package, Send, RotateCcw, Edit } from 'lucide-react';
+import { ArrowLeft, Package, Send, RotateCcw } from 'lucide-react';
 import { IssueForm } from '@/components/IssueForm';
 import { ReturnForm } from '@/components/ReturnForm';
-import { Stand, StandTemplate, Material, Transaction } from '@/types';
+import { Stand, Material, Transaction } from '@/types';
 import { 
   getStandById, 
-  getTemplates, 
-  getTemplateById, 
-  getTemplateShelves, 
+  getStandByQR,
   getMaterialsByIds, 
-  updateStand,
-  getTransactions,
-  getStandByQR
+  getTransactions
 } from '@/lib/firestore';
 
 export function StandDetailPage() {
   const { id: standId, qrCode } = useParams<{ id?: string; qrCode?: string }>();
   const navigate = useNavigate();
   const [stand, setStand] = useState<Stand | null>(null);
-  const [template, setTemplate] = useState<StandTemplate | null>(null);
   const [shelfMaterials, setShelfMaterials] = useState<Map<number, Material[]>>(new Map());
-  const [templates, setTemplates] = useState<StandTemplate[]>([]);
   const [lastTransaction, setLastTransaction] = useState<Transaction | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showIssueForm, setShowIssueForm] = useState(false);
   const [showReturnForm, setShowReturnForm] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
 
   useEffect(() => {
     if (standId) {
@@ -46,7 +36,7 @@ export function StandDetailPage() {
 
   const fetchStandDataById = async () => {
     try {
-      const standData = await getStandById(Number(standId));
+      const standData = await getStandById(standId!);
       if (!standData) {
         setError('Стенд не найден');
         setLoading(false);
@@ -79,22 +69,30 @@ export function StandDetailPage() {
   const loadStandData = async (standData: Stand) => {
     try {
       setStand(standData);
-      setSelectedTemplateId(standData.template_id || null);
 
-      // Fetch templates
-      const templatesData = await getTemplates();
-      setTemplates(templatesData);
+      // Load materials for shelves
+      if (standData.shelves && standData.shelves.length > 0) {
+        const allMaterialIds = standData.shelves.flatMap(shelf => shelf.materials);
+        if (allMaterialIds.length > 0) {
+          const materials = await getMaterialsByIds(allMaterialIds);
+          const materialsMap = new Map<number, Material[]>();
 
-      // Fetch template data if stand has a template
-      if (standData.template_id) {
-        await loadTemplateData(standData.template_id);
+          standData.shelves.forEach(shelf => {
+            const shelfMats = shelf.materials
+              .map(matId => materials.find(m => m.id === matId))
+              .filter(Boolean) as Material[];
+            materialsMap.set(shelf.number, shelfMats);
+          });
+
+          setShelfMaterials(materialsMap);
+        }
       }
 
       // Fetch last transaction
       const transactions = await getTransactions();
       const standTransactions = transactions
-        .filter(t => t.stand_id === standData.id)
-        .sort((a, b) => new Date(b.date_time).getTime() - new Date(a.date_time).getTime());
+        .filter(t => t.standId === standData.id)
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
       
       if (standTransactions.length > 0) {
         setLastTransaction(standTransactions[0]);
@@ -105,67 +103,6 @@ export function StandDetailPage() {
       setError('Ошибка при загрузке данных стенда');
     } finally {
       setLoading(false);
-    }
-  };
-
-  const loadTemplateData = async (templateId: number) => {
-    try {
-      const [templateData, shelvesData] = await Promise.all([
-        getTemplateById(templateId),
-        getTemplateShelves(templateId)
-      ]);
-
-      setTemplate(templateData);
-
-      // Load materials for shelves
-      const materialIds = shelvesData.map(shelf => shelf.material_id);
-      if (materialIds.length > 0) {
-        const materials = await getMaterialsByIds(materialIds);
-        const materialsMap = new Map<number, Material[]>();
-
-        // Group materials by shelf number
-        [1, 2, 3].forEach(shelfNumber => {
-          const shelfMats = shelvesData
-            .filter(shelf => shelf.shelf_number === shelfNumber)
-            .map(shelf => materials.find(m => m.id === shelf.material_id))
-            .filter(Boolean) as Material[];
-          materialsMap.set(shelfNumber, shelfMats);
-        });
-
-        setShelfMaterials(materialsMap);
-      }
-    } catch (error) {
-      console.error('Error loading template data:', error);
-    }
-  };
-
-  const handleTemplateChange = async (templateId: string) => {
-    if (!stand) return;
-
-    try {
-      const newTemplateId = templateId ? Number(templateId) : null;
-      await updateStand(stand.id, { template_id: newTemplateId });
-      
-      setSelectedTemplateId(newTemplateId);
-      
-      if (newTemplateId) {
-        await loadTemplateData(newTemplateId);
-      } else {
-        setTemplate(null);
-        setShelfMaterials(new Map());
-      }
-      
-      setIsEditing(false);
-      
-      // Refresh stand data
-      if (standId) {
-        await fetchStandDataById();
-      } else if (qrCode) {
-        await fetchStandDataByQR();
-      }
-    } catch (error) {
-      console.error('Error updating template:', error);
-      alert('Ошибка при обновлении шаблона');
     }
   };
 
@@ -242,22 +179,22 @@ export function StandDetailPage() {
                 Стенд #{stand.number}
               </CardTitle>
               <p className="text-muted-foreground mt-1">
-                {stand.name}
+                {stand.theme}
               </p>
             </div>
             <div className="flex items-center gap-2">
               <Badge 
-                variant={stand.status === 'available' ? 'default' : 'secondary'}
+                variant={stand.status === 'available' || stand.status === 'В Зале Царства' ? 'default' : 'secondary'}
                 className="text-sm"
               >
-                {stand.status === 'available' ? 'Доступен' : 'Выдан'}
+                {stand.status}
               </Badge>
             </div>
           </div>
         </CardHeader>
         <CardContent>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            {stand.status === 'available' ? (
+            {(stand.status === 'available' || stand.status === 'В Зале Царства') ? (
               <Button 
                 onClick={() => setShowIssueForm(true)}
                 className="flex-1 max-w-xs"
@@ -279,73 +216,25 @@ export function StandDetailPage() {
         </CardContent>
       </Card>
 
-      {/* Template Selection - only show for detail pages, not QR scan pages */}
-      {standId && (
-        <Card>
-          <CardHeader>
-            <div className="flex justify-between items-center">
-              <CardTitle>Шаблон стенда</CardTitle>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => setIsEditing(!isEditing)}
-              >
-                <Edit className="w-4 h-4 mr-2" />
-                {isEditing ? 'Отмена' : 'Изменить'}
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {isEditing ? (
-              <div className="space-y-4">
-                <Label>Выберите шаблон</Label>
-                <Select 
-                  value={selectedTemplateId?.toString() || ''} 
-                  onValueChange={handleTemplateChange}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Выберите шаблон" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="">Без шаблона</SelectItem>
-                    {templates.map((template) => (
-                      <SelectItem key={template.id} value={template.id.toString()}>
-                        {template.theme}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            ) : (
-              <div>
-                <p className="text-lg font-medium">
-                  {template ? template.theme : 'Без шаблона'}
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
-
-      {/* Template Preview */}
-      {template && shelfMaterials.size > 0 && (
+      {/* Materials on shelves */}
+      {stand.shelves && stand.shelves.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle>Материалы на полках</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {[1, 2, 3].map(shelfNumber => {
-                const materials = shelfMaterials.get(shelfNumber) || [];
+              {stand.shelves.map(shelf => {
+                const materials = shelfMaterials.get(shelf.number) || [];
                 return (
-                  <div key={shelfNumber} className="border rounded-lg p-4">
-                    <h4 className="font-medium mb-3">Полка {shelfNumber}</h4>
+                  <div key={shelf.number} className="border rounded-lg p-4">
+                    <h4 className="font-medium mb-3">Полка {shelf.number}</h4>
                     <div className="space-y-3">
                       {materials.map((material) => (
                         <div key={material.id} className="flex items-center gap-3">
-                          {material.image_url && (
+                          {material.imageUrl && (
                             <img
-                              src={material.image_url}
+                              src={material.imageUrl}
                               alt={material.name}
                               className="w-12 h-12 object-cover rounded cursor-pointer hover:opacity-80"
                               onClick={() => {
@@ -353,7 +242,7 @@ export function StandDetailPage() {
                                 modal.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4';
                                 modal.innerHTML = `
                                   <div class="relative">
-                                    <img src="${material.image_url}" class="max-w-full max-h-full rounded-lg" />
+                                    <img src="${material.imageUrl}" class="max-w-full max-h-full rounded-lg" />
                                     <button class="absolute top-2 right-2 bg-white rounded-full p-2 hover:bg-gray-100">
                                       <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                         <line x1="18" y1="6" x2="6" y2="18"></line>
@@ -392,35 +281,41 @@ export function StandDetailPage() {
             <div className="space-y-2">
               <div className="flex justify-between items-center">
                 <span className="font-medium">Тип операции:</span>
-                <Badge variant={lastTransaction.type === 'issue' ? 'default' : 'secondary'}>
-                  {lastTransaction.type === 'issue' ? 'Выдача' : 'Прием'}
+                <Badge variant={lastTransaction.action === 'issue' ? 'default' : 'secondary'}>
+                  {lastTransaction.action === 'issue' ? 'Выдача' : 'Прием'}
                 </Badge>
               </div>
               <div className="flex justify-between">
                 <span className="font-medium">Дата и время:</span>
-                <span>{formatDate(lastTransaction.date_time)}</span>
+                <span>{formatDate(lastTransaction.timestamp)}</span>
               </div>
-              {lastTransaction.type === 'issue' ? (
+              {lastTransaction.action === 'issue' ? (
                 <>
-                  <div className="flex justify-between">
-                    <span className="font-medium">Выдан:</span>
-                    <span>{lastTransaction.issued_to}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="font-medium">Выдал:</span>
-                    <span>{lastTransaction.issued_by}</span>
-                  </div>
+                  {lastTransaction.issuedTo && (
+                    <div className="flex justify-between">
+                      <span className="font-medium">Выдан:</span>
+                      <span>{lastTransaction.issuedTo}</span>
+                    </div>
+                  )}
+                  {lastTransaction.handledBy && (
+                    <div className="flex justify-between">
+                      <span className="font-medium">Выдал:</span>
+                      <span>{lastTransaction.handledBy}</span>
+                    </div>
+                  )}
                 </>
               ) : (
                 <>
-                  <div className="flex justify-between">
-                    <span className="font-medium">Принял:</span>
-                    <span>{lastTransaction.received_by}</span>
-                  </div>
-                  {lastTransaction.notes && (
+                  {lastTransaction.handledBy && (
+                    <div className="flex justify-between">
+                      <span className="font-medium">Принял:</span>
+                      <span>{lastTransaction.handledBy}</span>
+                    </div>
+                  )}
+                  {lastTransaction.comments && (
                     <div>
                       <span className="font-medium">Замечания:</span>
-                      <p className="mt-1 text-sm bg-muted p-2 rounded">{lastTransaction.notes}</p>
+                      <p className="mt-1 text-sm bg-muted p-2 rounded">{lastTransaction.comments}</p>
                     </div>
                   )}
                 </>

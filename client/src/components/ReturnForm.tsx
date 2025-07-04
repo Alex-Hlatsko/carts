@@ -17,8 +17,8 @@ interface ReturnFormProps {
 }
 
 export function ReturnForm({ isOpen, onClose, stand }: ReturnFormProps) {
-  const [receivedBy, setReceivedBy] = useState('');
-  const [notes, setNotes] = useState('');
+  const [handledBy, setHandledBy] = useState('');
+  const [comments, setComments] = useState('');
   const [checklistItems, setChecklistItems] = useState<ChecklistItem[]>([]);
   const [checklistData, setChecklistData] = useState<Record<string, any>>({});
   const [responsiblePersons, setResponsiblePersons] = useState<ResponsiblePerson[]>([]);
@@ -58,19 +58,19 @@ export function ReturnForm({ isOpen, onClose, stand }: ReturnFormProps) {
 
     try {
       // Update stand status
-      await updateStand(stand.id, { status: 'available' });
+      await updateStand(stand.id, { status: 'В Зале Царства' });
       
       // Create transaction record
       await createTransaction({
-        stand_id: stand.id,
-        type: 'return',
-        received_by: receivedBy,
-        checklist_data: JSON.stringify(checklistData),
-        notes: notes || undefined
+        standId: stand.id,
+        action: 'receive',
+        handledBy: handledBy,
+        checklist: checklistData,
+        comments: comments || undefined
       });
 
-      setReceivedBy('');
-      setNotes('');
+      setHandledBy('');
+      setComments('');
       
       // Reset checklist
       const initialData: Record<string, any> = {};
@@ -107,15 +107,15 @@ export function ReturnForm({ isOpen, onClose, stand }: ReturnFormProps) {
         
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
-            <Label htmlFor="received_by">Кто принимает</Label>
-            <Select onValueChange={setReceivedBy} required>
+            <Label htmlFor="handledBy">Кто принимает</Label>
+            <Select onValueChange={setHandledBy} required>
               <SelectTrigger>
                 <SelectValue placeholder="Выберите ответственного" />
               </SelectTrigger>
               <SelectContent>
                 {responsiblePersons.map((person) => (
-                  <SelectItem key={person.id} value={`${person.first_name} ${person.last_name}`}>
-                    {person.first_name} {person.last_name}
+                  <SelectItem key={person.id} value={`${person.firstName} ${person.lastName}`}>
+                    {person.firstName} {person.lastName}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -183,11 +183,11 @@ export function ReturnForm({ isOpen, onClose, stand }: ReturnFormProps) {
           </div>
 
           <div>
-            <Label htmlFor="notes">Дополнительные замечания</Label>
+            <Label htmlFor="comments">Дополнительные замечания</Label>
             <Textarea
-              id="notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
+              id="comments"
+              value={comments}
+              onChange={(e) => setComments(e.target.value)}
               placeholder="Дополнительные замечания (необязательно)"
               rows={3}
             />

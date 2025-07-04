@@ -17,16 +17,9 @@ export function QRScanner({ onScan, onClose }: QRScannerProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [cameras, setCameras] = useState<QrScanner.Camera[]>([]);
   const [currentCameraIndex, setCurrentCameraIndex] = useState(0);
-  const [debugInfo, setDebugInfo] = useState<string[]>([]);
-
-  const addDebugInfo = (info: string) => {
-    console.log('QR Scanner:', info);
-    setDebugInfo(prev => [...prev.slice(-4), `${new Date().toLocaleTimeString()}: ${info}`]);
-  };
 
   useEffect(() => {
     let mounted = true;
-    let timeoutId: NodeJS.Timeout;
 
     const initScanner = async () => {
       if (!videoRef.current || !mounted) return;
@@ -34,27 +27,11 @@ export function QRScanner({ onScan, onClose }: QRScannerProps) {
       try {
         setIsLoading(true);
         setError(null);
-        addDebugInfo('Инициализация сканера...');
-
-        // Set a timeout for the initialization
-        timeoutId = setTimeout(() => {
-          if (mounted && isLoading) {
-            addDebugInfo('Таймаут инициализации камеры');
-            setError('Не удалось запустить камеру в течение 10 секунд. Проверьте разрешения браузера.');
-            setIsLoading(false);
-          }
-        }, 10000);
-
-        // Check if QrScanner is available
-        if (!QrScanner) {
-          throw new Error('QR Scanner library not loaded');
-        }
-
-        addDebugInfo('Проверка доступности камеры...');
+        console.log('QR Scanner: Initializing...');
 
         // Check if camera is available
         const hasCamera = await QrScanner.hasCamera();
-        addDebugInfo(`Камера доступна: ${hasCamera}`);
+        console.log('QR Scanner: Camera available:', hasCamera);
         
         if (!hasCamera) {
           if (mounted) {
@@ -64,43 +41,9 @@ export function QRScanner({ onScan, onClose }: QRScannerProps) {
           return;
         }
 
-        addDebugInfo('Запрос разрешения на камеру...');
-
-        // Request camera permissions explicitly
-        let stream: MediaStream | null = null;
-        try {
-          stream = await navigator.mediaDevices.getUserMedia({ 
-            video: { 
-              facingMode: 'environment',
-              width: { ideal: 1280 },
-              height: { ideal: 720 }
-            } 
-          });
-          addDebugInfo('Разрешение на камеру получено');
-          
-          // Stop the stream immediately as QrScanner will handle it
-          stream.getTracks().forEach(track => track.stop());
-        } catch (permissionErr) {
-          addDebugInfo(`Ошибка разрешения: ${permissionErr instanceof Error ? permissionErr.message : 'Unknown'}`);
-          
-          if (mounted) {
-            if (permissionErr instanceof Error && permissionErr.name === 'NotAllowedError') {
-              setError('Доступ к камере запрещен. Пожалуйста, разрешите доступ к камере в настройках браузера и обновите страницу.');
-            } else if (permissionErr instanceof Error && permissionErr.name === 'NotFoundError') {
-              setError('Камера не найдена на вашем устройстве');
-            } else {
-              setError('Не удалось получить доступ к камере. Проверьте настройки браузера.');
-            }
-            setIsLoading(false);
-          }
-          return;
-        }
-
-        addDebugInfo('Получение списка камер...');
-
         // Get available cameras
         const availableCameras = await QrScanner.listCameras(true);
-        addDebugInfo(`Найдено камер: ${availableCameras.length}`);
+        console.log('QR Scanner: Available cameras:', availableCameras);
         
         if (mounted) {
           setCameras(availableCameras);
@@ -125,13 +68,13 @@ export function QRScanner({ onScan, onClose }: QRScannerProps) {
           preferredCamera = availableCameras[currentCameraIndex] || availableCameras[0];
         }
 
-        addDebugInfo(`Используем камеру: ${preferredCamera.label}`);
+        console.log('QR Scanner: Using camera:', preferredCamera.label);
 
         // Create scanner instance
         const scanner = new QrScanner(
           videoRef.current,
           (result) => {
-            addDebugInfo(`QR код отсканирован: ${result.data}`);
+            console.log('QR Scanner: Code scanned:', result.data);
             if (mounted) {
               onScan(result.data);
             }
@@ -141,32 +84,19 @@ export function QRScanner({ onScan, onClose }: QRScannerProps) {
             highlightScanRegion: true,
             highlightCodeOutline: true,
             preferredCamera: preferredCamera?.id || 'environment',
-            maxScansPerSecond: 5,
-            calculateScanRegion: (video) => {
-              const smallerDimension = Math.min(video.videoWidth, video.videoHeight);
-              const scanRegionSize = Math.round(smallerDimension * 0.7);
-              return {
-                x: Math.round((video.videoWidth - scanRegionSize) / 2),
-                y: Math.round((video.videoHeight - scanRegionSize) / 2),
-                width: scanRegionSize,
-                height: scanRegionSize,
-              };
-            }
+            maxScansPerSecond: 3
           }
         );
 
         if (mounted) {
           scannerRef.current = scanner;
-          addDebugInfo('Запуск сканера...');
+          console.log('QR Scanner: Starting scanner...');
           await scanner.start();
-          addDebugInfo('Сканер запущен успешно');
-          clearTimeout(timeoutId);
+          console.log('QR Scanner: Scanner started successfully');
           setIsLoading(false);
         }
       } catch (err) {
-        clearTimeout(timeoutId);
-        console.error('Scanner initialization error:', err);
-        addDebugInfo(`Ошибка инициализации: ${err instanceof Error ? err.message : 'Unknown error'}`);
+        console.error('QR Scanner initialization error:', err);
         
         if (mounted) {
           let errorMessage = 'Не удалось запустить камеру.';
@@ -177,8 +107,6 @@ export function QRScanner({ onScan, onClose }: QRScannerProps) {
               errorMessage = 'Камера не найдена на вашем устройстве.';
             } else if (err.message.includes('in use') || err.message.includes('NotReadableError')) {
               errorMessage = 'Камера уже используется другим приложением.';
-            } else if (err.message.includes('overconstrained') || err.message.includes('OverconstrainedError')) {
-              errorMessage = 'Настройки камеры не поддерживаются устройством.';
             }
           }
           setError(errorMessage);
@@ -187,13 +115,12 @@ export function QRScanner({ onScan, onClose }: QRScannerProps) {
       }
     };
 
-    initScanner();
+    // Add a small delay to ensure the component is mounted
+    const timeoutId = setTimeout(initScanner, 100);
 
     return () => {
       mounted = false;
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
+      clearTimeout(timeoutId);
       if (scannerRef.current) {
         try {
           scannerRef.current.stop();
@@ -211,7 +138,7 @@ export function QRScanner({ onScan, onClose }: QRScannerProps) {
 
     try {
       const nextIndex = (currentCameraIndex + 1) % cameras.length;
-      addDebugInfo(`Переключение на камеру ${nextIndex}: ${cameras[nextIndex]?.label}`);
+      console.log('QR Scanner: Switching to camera', nextIndex, cameras[nextIndex]?.label);
       
       // Stop current scanner
       if (scannerRef.current) {
@@ -223,16 +150,14 @@ export function QRScanner({ onScan, onClose }: QRScannerProps) {
       setCurrentCameraIndex(nextIndex);
     } catch (error) {
       console.error('Error switching camera:', error);
-      addDebugInfo(`Ошибка переключения камеры: ${error instanceof Error ? error.message : 'Unknown'}`);
     }
   };
 
   const handleRetry = () => {
-    addDebugInfo('Повторная попытка инициализации...');
+    console.log('QR Scanner: Retrying initialization...');
     setError(null);
     setIsLoading(true);
     setCurrentCameraIndex(0);
-    setDebugInfo([]);
   };
 
   const handleManualInput = () => {
@@ -261,13 +186,6 @@ export function QRScanner({ onScan, onClose }: QRScannerProps) {
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
               <p>Запуск камеры...</p>
-              <div className="mt-4 p-2 bg-muted rounded text-xs">
-                <div className="space-y-1">
-                  {debugInfo.map((info, index) => (
-                    <div key={index}>{info}</div>
-                  ))}
-                </div>
-              </div>
             </div>
           )}
           
@@ -286,14 +204,6 @@ export function QRScanner({ onScan, onClose }: QRScannerProps) {
                 <Button onClick={onClose} variant="outline" size="sm">
                   Закрыть
                 </Button>
-              </div>
-              <div className="mt-4 p-2 bg-muted rounded text-xs">
-                <strong>Отладочная информация:</strong>
-                <div className="space-y-1 mt-2">
-                  {debugInfo.map((info, index) => (
-                    <div key={index}>{info}</div>
-                  ))}
-                </div>
               </div>
             </div>
           )}

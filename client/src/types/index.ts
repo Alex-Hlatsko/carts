@@ -1,68 +1,84 @@
-// Types for SQLite database structure
+// Firebase Firestore types
 export interface MaterialData {
   name: string;
-  image_url?: string;
+  imageUrl?: string;
 }
 
 export interface Material {
-  id: number;
+  id: string;
   name: string;
-  image_url?: string;
-  created_at: string;
-  updated_at: string;
+  imageUrl?: string;
+}
+
+export interface StandData {
+  number: string;
+  theme: string;
+  shelves: Array<{
+    number: number;
+    materials: string[];
+  }>;
+  status: string;
+  qrCode?: string;
 }
 
 export interface Stand {
-  id: number;
+  id: string;
   number: string;
-  name: string;
-  image_url?: string;
-  qr_code: string;
+  theme: string;
+  shelves: Array<{
+    number: number;
+    materials: string[];
+  }>;
   status: string;
-  template_id?: number;
-  created_at: string;
-  updated_at: string;
+  qrCode?: string;
 }
 
 export interface StandTemplate {
-  id: number;
+  id: string;
   theme: string;
-  created_at: string;
-  updated_at: string;
+  shelves: Array<{
+    number: number;
+    materials: string[];
+  }>;
 }
 
 export interface TemplateShelf {
-  id: number;
-  template_id: number;
+  id: string;
+  template_id: string;
   shelf_number: number;
-  material_id: number;
+  material_id: string;
+}
+
+export interface ResponsiblePersonData {
+  firstName: string;
+  lastName: string;
 }
 
 export interface ResponsiblePerson {
-  id: number;
-  first_name: string;
-  last_name: string;
-  created_at: string;
-  updated_at: string;
+  id: string;
+  firstName: string;
+  lastName: string;
+}
+
+export interface TransactionData {
+  standId: string;
+  action: string;
+  handledBy?: string;
+  issuedTo?: string;
+  comments?: string;
+  checklist?: any;
+  timestamp: string;
 }
 
 export interface Transaction {
-  id: number;
-  stand_id: number;
-  type: string;
-  issued_to?: string;
-  issued_by?: string;
-  received_by?: string;
-  date_time: string;
-  checklist_data?: string;
-  notes?: string;
-}
-
-export interface ChecklistSettingsDB {
-  id: number;
-  items: string;
-  created_at: string;
-  updated_at: string;
+  id: string;
+  standId: string;
+  action: string;
+  handledBy?: string;
+  issuedTo?: string;
+  comments?: string;
+  checklist?: any;
+  timestamp: string;
 }
 
 export interface ChecklistItem {
@@ -73,27 +89,6 @@ export interface ChecklistItem {
 
 export interface ChecklistSettings {
   items: ChecklistItem[];
-}
-
-export interface StandServiceData {
-  transaction_id: number;
-  responsible_person_id: number;
-  comment?: string;
-  serviced_at?: string;
-}
-
-export interface StandService {
-  id: number;
-  data: StandServiceData;
-}
-
-export interface TransactionWithService extends Transaction {
-  service?: StandService & {
-    responsible_person_name: string;
-  };
-  stand_number: string;
-  stand_name: string;
-  stand_image_url?: string;
 }
 
 // Extended types for UI
@@ -107,25 +102,15 @@ export interface TemplateWithMaterials extends StandTemplate {
   };
 }
 
-// Legacy compatibility types for Firebase Firestore structure (for components that still use them)
-export interface MaterialDataLegacy {
-  name: string;
-  imageUrl?: string;
-}
-
+// Legacy compatibility types (for backwards compatibility)
 export interface MaterialLegacy {
   id: string;
-  data: MaterialDataLegacy;
-}
-
-export interface ResponsiblePersonDataLegacy {
-  firstName: string;
-  lastName: string;
+  data: MaterialData;
 }
 
 export interface ResponsiblePersonLegacy {
   id: string;
-  data: ResponsiblePersonDataLegacy;
+  data: ResponsiblePersonData;
 }
 
 export interface TemplateLegacy {
@@ -141,14 +126,5 @@ export interface TemplateLegacy {
 
 export interface StandLegacy {
   id: string;
-  data: {
-    number: string;
-    theme: string;
-    shelves: Array<{
-      number: number;
-      materials: string[];
-    }>;
-    status: string;
-    qrCode?: string;
-  };
+  data: StandData;
 }

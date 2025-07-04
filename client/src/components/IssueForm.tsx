@@ -16,8 +16,8 @@ interface IssueFormProps {
 
 export function IssueForm({ isOpen, onClose, stand }: IssueFormProps) {
   const [formData, setFormData] = useState({
-    issued_to: '',
-    issued_by: ''
+    issuedTo: '',
+    handledBy: ''
   });
   const [responsiblePersons, setResponsiblePersons] = useState<ResponsiblePerson[]>([]);
   const [loading, setLoading] = useState(false);
@@ -47,13 +47,13 @@ export function IssueForm({ isOpen, onClose, stand }: IssueFormProps) {
       
       // Create transaction record
       await createTransaction({
-        stand_id: stand.id,
-        type: 'issue',
-        issued_by: formData.issued_by,
-        issued_to: formData.issued_to
+        standId: stand.id,
+        action: 'issue',
+        handledBy: formData.handledBy,
+        issuedTo: formData.issuedTo
       });
 
-      setFormData({ issued_to: '', issued_by: '' });
+      setFormData({ issuedTo: '', handledBy: '' });
       onClose();
     } catch (error) {
       console.error('Error issuing stand:', error);
@@ -81,27 +81,27 @@ export function IssueForm({ isOpen, onClose, stand }: IssueFormProps) {
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <Label htmlFor="issued_to">Кому выдается (Имя и Фамилия)</Label>
+            <Label htmlFor="issuedTo">Кому выдается (Имя и Фамилия)</Label>
             <Input
-              id="issued_to"
+              id="issuedTo"
               type="text"
-              value={formData.issued_to}
-              onChange={(e) => handleChange('issued_to', e.target.value)}
+              value={formData.issuedTo}
+              onChange={(e) => handleChange('issuedTo', e.target.value)}
               placeholder="Иван Петров"
               required
             />
           </div>
           
           <div>
-            <Label htmlFor="issued_by">Кто выдает</Label>
-            <Select onValueChange={(value) => handleChange('issued_by', value)} required>
+            <Label htmlFor="handledBy">Кто выдает</Label>
+            <Select onValueChange={(value) => handleChange('handledBy', value)} required>
               <SelectTrigger>
                 <SelectValue placeholder="Выберите ответственного" />
               </SelectTrigger>
               <SelectContent>
                 {responsiblePersons.map((person) => (
-                  <SelectItem key={person.id} value={`${person.first_name} ${person.last_name}`}>
-                    {person.first_name} {person.last_name}
+                  <SelectItem key={person.id} value={`${person.firstName} ${person.lastName}`}>
+                    {person.firstName} {person.lastName}
                   </SelectItem>
                 ))}
               </SelectContent>
