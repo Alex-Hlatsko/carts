@@ -27,15 +27,23 @@ export function StandDetailPage() {
   const [showReturnForm, setShowReturnForm] = useState(false);
 
   useEffect(() => {
+    console.log('StandDetailPage: useEffect triggered', { standId, qrCode });
     if (standId) {
       fetchStandDataById();
     } else if (qrCode) {
       fetchStandDataByQR();
+    } else {
+      setError('Не указан ID или QR-код стенда');
+      setLoading(false);
     }
   }, [standId, qrCode]);
 
   const fetchStandDataById = async () => {
     try {
+      console.log('StandDetailPage: Fetching stand by ID:', standId);
+      setLoading(true);
+      setError(null);
+      
       const standData = await getStandById(standId!);
       if (!standData) {
         setError('Стенд не найден');
@@ -44,7 +52,7 @@ export function StandDetailPage() {
       }
       await loadStandData(standData);
     } catch (error) {
-      console.error('Error fetching stand data by ID:', error);
+      console.error('StandDetailPage: Error fetching stand data by ID:', error);
       setError('Ошибка при загрузке данных стенда');
       setLoading(false);
     }
@@ -52,6 +60,10 @@ export function StandDetailPage() {
 
   const fetchStandDataByQR = async () => {
     try {
+      console.log('StandDetailPage: Fetching stand by QR:', qrCode);
+      setLoading(true);
+      setError(null);
+      
       const standData = await getStandByQR(qrCode!);
       if (!standData) {
         setError('Стенд с таким QR-кодом не найден');
@@ -60,7 +72,7 @@ export function StandDetailPage() {
       }
       await loadStandData(standData);
     } catch (error) {
-      console.error('Error fetching stand data by QR:', error);
+      console.error('StandDetailPage: Error fetching stand data by QR:', error);
       setError('Ошибка при загрузке стенда');
       setLoading(false);
     }
@@ -68,22 +80,26 @@ export function StandDetailPage() {
 
   const loadStandData = async (standData: Stand) => {
     try {
+      console.log('StandDetailPage: Loading stand data:', standData);
       setStand(standData);
 
       // Load materials for shelves
       if (standData.shelves && standData.shelves.length > 0) {
-        const allMaterialIds = standData.shelves.flatMap(shelf => shelf.materials);
+        const allMaterialIds = standData.shelves.flatMap(shelf => shelf.materials || []);
+        console.log('StandDetailPage: Material IDs to fetch:', allMaterialIds);
+        
         if (allMaterialIds.length > 0) {
           const materials = await getMaterialsByIds(allMaterialIds);
           const materialsMap = new Map<number, Material[]>();
 
           standData.shelves.forEach(shelf => {
-            const shelfMats = shelf.materials
+            const shelfMats = (shelf.materials || [])
               .map(matId => materials.find(m => m.id === matId))
               .filter(Boolean) as Material[];
             materialsMap.set(shelf.number, shelfMats);
           });
 
+          console.log('StandDetailPage: Materials map:', materialsMap);
           setShelfMaterials(materialsMap);
         }
       }
@@ -95,11 +111,12 @@ export function StandDetailPage() {
         .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
       
       if (standTransactions.length > 0) {
+        console.log('StandDetailPage: Last transaction:', standTransactions[0]);
         setLastTransaction(standTransactions[0]);
       }
 
     } catch (error) {
-      console.error('Error loading stand data:', error);
+      console.error('StandDetailPage: Error loading stand data:', error);
       setError('Ошибка при загрузке данных стенда');
     } finally {
       setLoading(false);
@@ -107,6 +124,7 @@ export function StandDetailPage() {
   };
 
   const handleFormClose = () => {
+    console.log('StandDetailPage: Form closed, reloading data');
     setShowIssueForm(false);
     setShowReturnForm(false);
     if (standId) {
@@ -130,16 +148,18 @@ export function StandDetailPage() {
 
   if (loading) {
     return (
-      <div className="text-center py-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-        <p>Загрузка...</p>
+      <div className="max-w-4xl mx-auto px-4">
+        <div className="text-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p>Загрузка данных стенда...</p>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="max-w-md mx-auto text-center py-8">
+      <div className="max-w-md mx-auto text-center py-8 px-4">
         <Card>
           <CardContent className="pt-6">
             <Package className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
@@ -156,7 +176,20 @@ export function StandDetailPage() {
   }
 
   if (!stand) {
-    return null;
+    return (
+      <div className="max-w-md mx-auto text-center py-8 px-4">
+        <Card>
+          <CardContent className="pt-6">
+            <Package className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
+            <h2 className="text-xl font-semibold mb-2">Стенд не найден</h2>
+            <Button onClick={handleBackNavigation}>
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Назад
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   return (
@@ -187,7 +220,9 @@ export function StandDetailPage() {
                 variant={stand.status === 'available' || stand.status === 'В Зале Царства' ? 'default' : 'secondary'}
                 className="text-sm"
               >
-                {stand.status}
+                {stand.status === 'available' ? 'Доступен' : 
+                 stand.status === 'В Зале Царства' ? 'В Зале Царства' : 
+                 stand.status === 'issued' ? 'Выдан' : stand.status}
               </Badge>
             </div>
           </div>
@@ -241,7 +276,7 @@ export function StandDetailPage() {
                                 const modal = document.createElement('div');
                                 modal.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4';
                                 modal.innerHTML = `
-                                  <div class="relative">
+                                  <div class="relative max-w-full max-h-full">
                                     <img src="${material.imageUrl}" class="max-w-full max-h-full rounded-lg" />
                                     <button class="absolute top-2 right-2 bg-white rounded-full p-2 hover:bg-gray-100">
                                       <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -282,7 +317,8 @@ export function StandDetailPage() {
               <div className="flex justify-between items-center">
                 <span className="font-medium">Тип операции:</span>
                 <Badge variant={lastTransaction.action === 'issue' ? 'default' : 'secondary'}>
-                  {lastTransaction.action === 'issue' ? 'Выдача' : 'Прием'}
+                  {lastTransaction.action === 'issue' ? 'Выдача' : 
+                   lastTransaction.action === 'receive' ? 'Прием' : lastTransaction.action}
                 </Badge>
               </div>
               <div className="flex justify-between">

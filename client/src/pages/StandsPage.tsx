@@ -4,16 +4,15 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Plus, QrCode, Eye } from 'lucide-react';
+import { Plus, QrCode, Eye, Package } from 'lucide-react';
 import { StandForm } from '@/components/StandForm';
-import { Stand, StandTemplate, StandWithTemplate } from '@/types';
-import { getStands, deleteStand, getTemplates } from '@/lib/firestore';
+import { Stand, StandWithTemplate } from '@/types';
+import { getStands, deleteStand } from '@/lib/firestore';
 import QRCodeLib from 'qrcode';
 
 export function StandsPage() {
   const navigate = useNavigate();
   const [stands, setStands] = useState<StandWithTemplate[]>([]);
-  const [templates, setTemplates] = useState<Map<string, StandTemplate>>(new Map());
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingStand, setEditingStand] = useState<Stand | null>(null);
   const [loading, setLoading] = useState(true);
@@ -24,17 +23,9 @@ export function StandsPage() {
 
   const fetchData = async () => {
     try {
-      const [standsData, templatesData] = await Promise.all([
-        getStands(),
-        getTemplates()
-      ]);
-      
-      // Create templates map
-      const templatesMap = new Map<string, StandTemplate>();
-      templatesData.forEach(template => {
-        templatesMap.set(template.id, template);
-      });
-      setTemplates(templatesMap);
+      console.log('StandsPage: Fetching stands...');
+      setLoading(true);
+      const standsData = await getStands();
       
       // Add template names to stands
       const standsWithTemplates: StandWithTemplate[] = standsData.map(stand => ({
@@ -42,15 +33,17 @@ export function StandsPage() {
         templateName: stand.theme
       }));
       
+      console.log('StandsPage: Stands fetched:', standsWithTemplates);
       setStands(standsWithTemplates);
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error('StandsPage: Error fetching data:', error);
     } finally {
       setLoading(false);
     }
   };
 
   const handleViewStand = (stand: Stand) => {
+    console.log('StandsPage: Viewing stand:', stand);
     navigate(`/stand-detail/${stand.id}`);
   };
 
@@ -60,16 +53,18 @@ export function StandsPage() {
     }
 
     try {
+      console.log('StandsPage: Deleting stand:', id);
       await deleteStand(id);
       fetchData();
     } catch (error) {
-      console.error('Error deleting stand:', error);
+      console.error('StandsPage: Error deleting stand:', error);
       alert('Ошибка при удалении стенда');
     }
   };
 
   const handleDownloadQR = async (standId: string, standNumber: string) => {
     try {
+      console.log('StandsPage: Generating QR code for stand:', standId);
       // Use the stand ID as QR code content
       const qrCodeDataURL = await QRCodeLib.toDataURL(standId, {
         width: 200,
@@ -84,13 +79,15 @@ export function StandsPage() {
       link.href = qrCodeDataURL;
       link.download = `stand-${standNumber}-qr.png`;
       link.click();
+      console.log('StandsPage: QR code downloaded');
     } catch (error) {
-      console.error('Error downloading QR code:', error);
+      console.error('StandsPage: Error downloading QR code:', error);
       alert('Ошибка при создании QR-кода');
     }
   };
 
   const handleFormClose = () => {
+    console.log('StandsPage: Form closed, refreshing data');
     setIsFormOpen(false);
     setEditingStand(null);
     fetchData();
@@ -98,9 +95,14 @@ export function StandsPage() {
 
   if (loading) {
     return (
-      <div className="text-center py-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-        <p>Загрузка...</p>
+      <div className="space-y-4 sm:space-y-6">
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <h1 className="text-2xl sm:text-3xl font-bold">Стенды</h1>
+        </div>
+        <div className="text-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p>Загрузка стендов...</p>
+        </div>
       </div>
     );
   }
@@ -118,6 +120,7 @@ export function StandsPage() {
       {stands.length === 0 ? (
         <Card>
           <CardContent className="text-center py-8">
+            <Package className="w-16 h-16 mx-auto mb-4 text-muted-foreground" />
             <p className="text-muted-foreground mb-4">
               У вас пока нет стендов
             </p>
@@ -130,7 +133,7 @@ export function StandsPage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {stands.map((stand) => (
-            <Card key={stand.id} className="h-full hover:shadow-md transition-shadow cursor-pointer">
+            <Card key={stand.id} className="h-full hover:shadow-md transition-shadow">
               <CardHeader className="pb-3">
                 <div className="flex justify-between items-start">
                   <div className="min-w-0 flex-1">
@@ -143,7 +146,8 @@ export function StandsPage() {
                         className="text-xs"
                       >
                         {stand.status === 'available' ? 'Доступен' : 
-                         stand.status === 'В Зале Царства' ? 'В Зале Царства' : 'Выдан'}
+                         stand.status === 'В Зале Царства' ? 'В Зале Царства' : 
+                         stand.status === 'issued' ? 'Выдан' : stand.status}
                       </Badge>
                     </div>
                   </div>
@@ -152,8 +156,8 @@ export function StandsPage() {
               
               <CardContent className="space-y-3">
                 <div className="text-center">
-                  <p className="text-sm font-medium text-muted-foreground">
-                    {stand.templateName || 'Без шаблона'}
+                  <p className="text-sm font-medium text-muted-foreground line-clamp-2">
+                    {stand.theme || 'Без названия'}
                   </p>
                 </div>
                 

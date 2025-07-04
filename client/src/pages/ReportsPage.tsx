@@ -2,11 +2,14 @@ import * as React from 'react';
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { FileText } from 'lucide-react';
+import { FileText, ArrowLeft } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { useNavigate } from 'react-router-dom';
 import { Transaction, Stand } from '@/types';
 import { getTransactions, getStands } from '@/lib/firestore';
 
 export function ReportsPage() {
+  const navigate = useNavigate();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [stands, setStands] = useState<Map<string, Stand>>(new Map());
   const [loading, setLoading] = useState(true);
@@ -17,11 +20,14 @@ export function ReportsPage() {
 
   const fetchData = async () => {
     try {
+      console.log('ReportsPage: Fetching data...');
+      setLoading(true);
       const [transactionsData, standsData] = await Promise.all([
         getTransactions(),
         getStands()
       ]);
       
+      console.log('ReportsPage: Data fetched', { transactionsData, standsData });
       setTransactions(transactionsData);
       
       // Create stands map for quick lookup
@@ -31,7 +37,7 @@ export function ReportsPage() {
       });
       setStands(standsMap);
     } catch (error) {
-      console.error('Error fetching data:', error);
+      console.error('ReportsPage: Error fetching data:', error);
     } finally {
       setLoading(false);
     }
@@ -55,16 +61,37 @@ export function ReportsPage() {
 
   if (loading) {
     return (
-      <div className="text-center py-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
-        <p>Загрузка...</p>
+      <div className="space-y-4 sm:space-y-6">
+        <div className="flex items-center gap-4">
+          <Button 
+            variant="ghost" 
+            onClick={() => navigate('/')}
+            size="sm"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Назад
+          </Button>
+          <h1 className="text-2xl sm:text-3xl font-bold">Отчеты</h1>
+        </div>
+        <div className="text-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p>Загрузка отчетов...</p>
+        </div>
       </div>
     );
   }
 
   return (
     <div className="space-y-4 sm:space-y-6">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+      <div className="flex items-center gap-4">
+        <Button 
+          variant="ghost" 
+          onClick={() => navigate('/')}
+          size="sm"
+        >
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Назад
+        </Button>
         <h1 className="text-2xl sm:text-3xl font-bold">Отчеты</h1>
       </div>
 
@@ -97,7 +124,8 @@ export function ReportsPage() {
                     </div>
                     <div className="text-right">
                       <Badge variant={transaction.action === 'issue' ? 'default' : 'secondary'}>
-                        {transaction.action === 'issue' ? 'Выдача' : 'Прием'}
+                        {transaction.action === 'issue' ? 'Выдача' : 
+                         transaction.action === 'receive' ? 'Прием' : transaction.action}
                       </Badge>
                       <p className="text-sm text-muted-foreground mt-1">
                         {formatDate(transaction.timestamp)}
@@ -129,7 +157,7 @@ export function ReportsPage() {
                               {Object.entries(checklist).map(([key, value]) => {
                                 if (key.endsWith('_comment')) return null;
                                 const comment = checklist[`${key}_comment`];
-                                const label = key.replace(/_/g, ' ');
+                                const label = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
                                 return (
                                   <div key={key} className="space-y-1">
                                     <div className="flex justify-between">

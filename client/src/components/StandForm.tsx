@@ -6,7 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Stand, StandTemplate, Material } from '@/types';
-import { getTemplates, createStand, updateStand, getStands, getTemplateShelves, getMaterialsByIds } from '@/lib/firestore';
+import { getTemplates, createStand, updateStand, getStands, getMaterialsByIds } from '@/lib/firestore';
 
 interface StandFormProps {
   isOpen: boolean;
@@ -34,10 +34,12 @@ export function StandForm({ isOpen, onClose, stand }: StandFormProps) {
   useEffect(() => {
     const fetchTemplates = async () => {
       try {
+        console.log('StandForm: Fetching templates...');
         const templatesData = await getTemplates();
+        console.log('StandForm: Templates fetched:', templatesData);
         setTemplates(templatesData);
       } catch (error) {
-        console.error('Error fetching templates:', error);
+        console.error('StandForm: Error fetching templates:', error);
       }
     };
 
@@ -48,6 +50,7 @@ export function StandForm({ isOpen, onClose, stand }: StandFormProps) {
 
   useEffect(() => {
     if (stand) {
+      console.log('StandForm: Editing stand:', stand);
       setFormData({
         number: stand.number,
         theme: stand.theme,
@@ -57,6 +60,7 @@ export function StandForm({ isOpen, onClose, stand }: StandFormProps) {
       
       setTemplateMaterials(new Map());
     } else {
+      console.log('StandForm: Creating new stand');
       setFormData({
         number: '',
         theme: '',
@@ -70,35 +74,39 @@ export function StandForm({ isOpen, onClose, stand }: StandFormProps) {
 
   const loadTemplateData = async (templateId: string) => {
     try {
+      console.log('StandForm: Loading template data for:', templateId);
       const template = templates.find(t => t.id === templateId);
       if (template) {
         setSelectedTemplate(template);
-      }
 
-      const shelves = await getTemplateShelves(templateId);
-      const materialIds = shelves.map(shelf => shelf.material_id);
-      
-      if (materialIds.length > 0) {
-        const materials = await getMaterialsByIds(materialIds);
-        const materialsMap = new Map<number, Material[]>();
-        
-        // Group materials by shelf number
-        [1, 2, 3].forEach(shelfNumber => {
-          const shelfMats = shelves
-            .filter(shelf => shelf.shelf_number === shelfNumber)
-            .map(shelf => materials.find(m => m.id === shelf.material_id))
-            .filter(Boolean) as Material[];
-          materialsMap.set(shelfNumber, shelfMats);
-        });
-        
-        setTemplateMaterials(materialsMap);
+        if (template.shelves && template.shelves.length > 0) {
+          const allMaterialIds = template.shelves.flatMap(shelf => shelf.materials || []);
+          console.log('StandForm: Material IDs to fetch:', allMaterialIds);
+          
+          if (allMaterialIds.length > 0) {
+            const materials = await getMaterialsByIds(allMaterialIds);
+            const materialsMap = new Map<number, Material[]>();
+            
+            template.shelves.forEach(shelf => {
+              const shelfMats = (shelf.materials || [])
+                .map(matId => materials.find(m => m.id === matId))
+                .filter(Boolean) as Material[];
+              materialsMap.set(shelf.number, shelfMats);
+            });
+            
+            console.log('StandForm: Template materials map:', materialsMap);
+            setTemplateMaterials(materialsMap);
+          }
+        }
       }
     } catch (error) {
-      console.error('Error loading template data:', error);
+      console.error('StandForm: Error loading template data:', error);
     }
   };
 
   const handleTemplateSelect = async (templateId: string) => {
+    console.log('StandForm: Template selected:', templateId);
+    
     if (!templateId) {
       setSelectedTemplate(null);
       setFormData(prev => ({
@@ -119,7 +127,6 @@ export function StandForm({ isOpen, onClose, stand }: StandFormProps) {
         templateId: templateId
       }));
       
-      // Load materials for template
       await loadTemplateData(templateId);
     }
   };
@@ -130,6 +137,8 @@ export function StandForm({ isOpen, onClose, stand }: StandFormProps) {
     setNumberError('');
 
     try {
+      console.log('StandForm: Submitting form:', formData);
+      
       // Check for duplicate numbers
       if (!stand || stand.number !== formData.number) {
         const existingStands = await getStands();
@@ -143,8 +152,8 @@ export function StandForm({ isOpen, onClose, stand }: StandFormProps) {
 
       // Create shelves from template if selected
       let shelves: Array<{ number: number; materials: string[] }> = [];
-      if (selectedTemplate) {
-        shelves = selectedTemplate.shelves || [];
+      if (selectedTemplate && selectedTemplate.shelves) {
+        shelves = selectedTemplate.shelves;
       }
 
       const standData = {
@@ -155,15 +164,18 @@ export function StandForm({ isOpen, onClose, stand }: StandFormProps) {
         qrCode: stand?.qrCode || Math.random().toString(36).substring(2, 15)
       };
 
+      console.log('StandForm: Saving stand data:', standData);
+
       if (stand) {
         await updateStand(stand.id, standData);
       } else {
         await createStand(standData);
       }
       
+      console.log('StandForm: Stand saved successfully');
       onClose();
     } catch (error) {
-      console.error('Error saving stand:', error);
+      console.error('StandForm: Error saving stand:', error);
       alert('Ошибка при сохранении стенда');
     } finally {
       setLoading(false);
@@ -256,7 +268,7 @@ export function StandForm({ isOpen, onClose, stand }: StandFormProps) {
                                   const modal = document.createElement('div');
                                   modal.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4';
                                   modal.innerHTML = `
-                                    <div class="relative">
+                                    <div class="relative max-w-full max-h-full">
                                       <img src="${material.imageUrl}" class="max-w-full max-h-full rounded-lg" />
                                       <button class="absolute top-2 right-2 bg-white rounded-full p-2 hover:bg-gray-100">
                                         <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

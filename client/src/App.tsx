@@ -5,7 +5,6 @@ import { HomePage } from '@/pages/HomePage';
 import { StandsPage } from '@/pages/StandsPage';
 import { ScanPage } from '@/pages/ScanPage';
 import { ReportsPage } from '@/pages/ReportsPage';
-import { StandDetailPage as StandDetailPageByQR } from '@/pages/StandDetailPage';
 import { StandDetailPage } from '@/pages/StandDetailPage';
 import { ChecklistSettingsPage } from '@/pages/ChecklistSettingsPage';
 import { SettingsPage } from '@/pages/SettingsPage';
@@ -21,7 +20,7 @@ function App() {
             <Route path="/stands" element={<StandsPage />} />
             <Route path="/scan" element={<ScanPage />} />
             <Route path="/reports" element={<ReportsPage />} />
-            <Route path="/stand/:qrCode" element={<StandDetailPageByQR />} />
+            <Route path="/stand/:qrCode" element={<StandDetailPage />} />
             <Route path="/stand-detail/:id" element={<StandDetailPage />} />
             <Route path="/checklist-settings" element={<ChecklistSettingsPage />} />
             <Route path="/settings" element={<SettingsPage />} />
