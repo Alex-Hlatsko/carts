@@ -1,222 +1,165 @@
 import * as React from 'react';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Plus, Edit, Trash2, QrCode, FileText } from 'lucide-react';
-import { StandForm } from '@/components/StandForm';
-import { Stand, TransactionWithService } from '@/types';
-import { getStands, deleteStand, getTransactions } from '@/lib/firestore';
-import QRCodeLib from 'qrcode';
-
-interface StandWithTemplate extends Stand {
-  template_theme?: string;
-}
+import { Input } from '@/components/ui/input';
+import { Card, CardContent } from '@/components/ui/card';
+import { QRGenerator } from '@/components/QRGenerator';
+import { StandVisualizer } from '@/components/StandVisualizer';
+import { useCollection } from '@/hooks/useFirestore';
+import { Stand, Material } from '@/types';
+import { Search, QrCode, Eye, Trash2 } from 'lucide-react';
 
 export function StandsPage() {
-  const [stands, setStands] = useState<StandWithTemplate[]>([]);
-  const [transactions, setTransactions] = useState<TransactionWithService[]>([]);
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [editingStand, setEditingStand] = useState<Stand | null>(null);
-  const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
+  const { data: stands, loading, error, deleteDocument } = useCollection<Stand>('stands');
+  const { data: materials } = useCollection<Material>('materials');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [showQR, setShowQR] = useState<string | null>(null);
+  const [selectedStand, setSelectedStand] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchStands();
-    fetchTransactions();
-  }, []);
+  const filteredStands = stands.filter(stand =>
+    stand.theme.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    stand.number.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    stand.status.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
-  const fetchStands = async () => {
-    try {
-      const data = await getStands();
-      setStands(data);
-    } catch (error) {
-      console.error('Error fetching stands:', error);
-    } finally {
-      setLoading(false);
+  const handleDeleteStand = async (stand: Stand) => {
+    if (confirm(`Вы уверены, что хотите удалить стенд "${stand.number} - ${stand.theme}"?`)) {
+      try {
+        await deleteDocument(stand.id);
+        alert('Стенд успешно удалён');
+      } catch (error) {
+        console.error('Error deleting stand:', error);
+        alert('Ошибка при удалении стенда');
+      }
     }
   };
 
-  const fetchTransactions = async () => {
-    try {
-      const data = await getTransactions();
-      setTransactions(data);
-    } catch (error) {
-      console.error('Error fetching transactions:', error);
-    }
-  };
-
-  const getLastReport = (standId: string) => {
-    const standTransactions = transactions
-      .filter(t => t.stand_id === standId && t.type === 'return')
-      .sort((a, b) => new Date(b.date_time).getTime() - new Date(a.date_time).getTime());
-    
-    return standTransactions[0] || null;
-  };
-
-  const handleEdit = (stand: Stand) => {
-    setEditingStand(stand);
-    setIsFormOpen(true);
-  };
-
-  const handleDelete = async (id: string) => {
-    if (!confirm('Вы уверены, что хотите удалить этот стенд?')) {
-      return;
-    }
-
-    try {
-      await deleteStand(id);
-      fetchStands();
-    } catch (error) {
-      console.error('Error deleting stand:', error);
-    }
-  };
-
-  const handleDownloadQR = async (qrCode: string, standNumber: string) => {
-    try {
-      const qrCodeDataURL = await QRCodeLib.toDataURL(qrCode, {
-        width: 200,
-        margin: 2
-      });
-      
-      const link = document.createElement('a');
-      link.href = qrCodeDataURL;
-      link.download = `stand-${standNumber}-qr.png`;
-      link.click();
-    } catch (error) {
-      console.error('Error downloading QR code:', error);
-    }
-  };
-
-  const handleFormClose = () => {
-    setIsFormOpen(false);
-    setEditingStand(null);
-    fetchStands();
-    fetchTransactions();
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('ru-RU');
-  };
+  if (error) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card>
+          <CardContent className="p-6 text-center">
+            <h2 className="text-xl font-semibold mb-4">Ошибка подключения к базе данных</h2>
+            <p className="text-muted-foreground mb-4">{error}</p>
+            <p className="text-sm text-muted-foreground">
+              Проверьте настройки Firebase в файле client/src/lib/firebase.ts
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (loading) {
-    return <div className="text-center py-8">Загрузка...</div>;
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Загрузка данных...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Стенды</h1>
-        <Button onClick={() => setIsFormOpen(true)}>
-          <Plus className="w-4 h-4 mr-2" />
-          Добавить стенд
-        </Button>
-      </div>
+    <div className="min-h-screen bg-background p-4">
+      <div className="max-w-6xl mx-auto">
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold mb-4">Все стенды</h1>
+          
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+            <Input
+              placeholder="Поиск по номеру, теме или статусу..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+        </div>
 
-      {stands.length === 0 ? (
-        <Card>
-          <CardContent className="text-center py-8">
-            <p className="text-muted-foreground mb-4">
-              У вас пока нет стендов
-            </p>
-            <Button onClick={() => setIsFormOpen(true)}>
-              <Plus className="w-4 h-4 mr-2" />
-              Добавить первый стенд
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {stands.map((stand) => {
-            const lastReport = getLastReport(stand.id);
-            
-            return (
-              <Card key={stand.id}>
-                <CardHeader>
-                  <div className="flex justify-between items-start">
+        <div className="grid gap-6">
+          {filteredStands.map(stand => (
+            <div key={stand.id}>
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex justify-between items-start mb-4">
                     <div>
-                      <CardTitle className="text-lg">
-                        Стенд #{stand.number}
-                      </CardTitle>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        {stand.name}
-                      </p>
-                      {stand.template_theme && (
-                        <p className="text-sm text-blue-600 mt-1">
-                          Шаблон: {stand.template_theme}
+                      <h3 className="font-semibold text-lg mb-2">
+                        <span className="text-primary">#{stand.number}</span> - {stand.theme}
+                      </h3>
+                      <div className="space-y-1">
+                        <p className="text-sm">
+                          <span className="font-medium">Статус:</span> {stand.status}
                         </p>
-                      )}
-                    </div>
-                    <Badge variant={stand.status === 'available' ? 'default' : 'secondary'}>
-                      {stand.status === 'available' ? 'Доступен' : 'Выдан'}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  {stand.image_url && (
-                    <div className="mb-4">
-                      <img
-                        src={stand.image_url}
-                        alt={`Стенд ${stand.number}`}
-                        className="w-full h-32 object-cover rounded"
-                      />
-                    </div>
-                  )}
-
-                  {lastReport && (
-                    <div className="mb-4 p-3 bg-muted rounded">
-                      <div className="flex items-center gap-2 mb-2">
-                        <FileText className="w-4 h-4" />
-                        <span className="text-sm font-medium">Последний отчет</span>
+                        <p className="text-xs text-muted-foreground">
+                          Добавлен: {stand.dateAdded.toLocaleDateString('ru-RU')}
+                        </p>
                       </div>
-                      <p className="text-sm text-muted-foreground">
-                        {formatDate(lastReport.date_time)} - {lastReport.received_by}
-                      </p>
-                      {lastReport.service && (
-                        <Badge variant="outline" className="mt-1">
-                          Обслужено {formatDate(lastReport.service.serviced_at)}
-                        </Badge>
-                      )}
+                    </div>
+
+                    <div className="flex flex-col gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => navigate(`/stand/${stand.id}`)}
+                      >
+                        <Eye className="h-4 w-4 mr-1" />
+                        Открыть
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowQR(showQR === stand.id ? null : stand.id)}
+                      >
+                        <QrCode className="h-4 w-4 mr-1" />
+                        QR
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSelectedStand(selectedStand === stand.id ? null : stand.id)}
+                      >
+                        Макет
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => handleDeleteStand(stand)}
+                      >
+                        <Trash2 className="h-4 w-4 mr-1" />
+                        Удалить
+                      </Button>
+                    </div>
+                  </div>
+
+                  {showQR === stand.id && (
+                    <div className="mt-4 pt-4 border-t text-center">
+                      <QRGenerator value={stand.id} size={150} />
+                      <p className="text-xs text-muted-foreground mt-2">QR-код для стенда</p>
                     </div>
                   )}
-                  
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleDownloadQR(stand.qr_code, stand.number)}
-                    >
-                      <QrCode className="w-4 h-4 mr-1" />
-                      QR
-                    </Button>
-                    
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleEdit(stand)}
-                    >
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                    
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleDelete(stand.id)}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
                 </CardContent>
               </Card>
-            );
-          })}
-        </div>
-      )}
 
-      <StandForm
-        isOpen={isFormOpen}
-        onClose={handleFormClose}
-        stand={editingStand}
-      />
+              {selectedStand === stand.id && (
+                <div className="mt-4">
+                  <StandVisualizer stand={stand} materials={materials} />
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {filteredStands.length === 0 && (
+          <Card>
+            <CardContent className="p-12 text-center text-muted-foreground">
+              {searchTerm ? 'Стенды не найдены' : 'Пока нет добавленных стендов'}
+            </CardContent>
+          </Card>
+        )}
+      </div>
     </div>
   );
 }
